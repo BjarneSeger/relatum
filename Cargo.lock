@@ -2637,7 +2637,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "http-body-util",
@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "apple-native-keyring-store",
@@ -2670,7 +2670,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "futures-core",
@@ -2688,7 +2688,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-domain"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jiff",
  "thiserror",
@@ -2696,7 +2696,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-infra"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "jiff",
@@ -2715,7 +2715,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -2732,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-web"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ammonia",
  "anyhow",
