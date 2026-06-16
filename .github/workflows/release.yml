@@ -69,8 +69,6 @@ jobs:
           tool: cargo-zigbuild
 
       # cargo-zigbuild links the aarch64-apple-darwin build against the macOS SDK.
-      # Provide one and point SDKROOT at it (Apple SDK license applies — see the
-      # plan's risks; the alternative is a native macos-latest build for this target).
       - name: Stage macOS SDK
         id: sdk
         run: |
