@@ -75,10 +75,10 @@ jobs:
         id: sdk
         run: |
           SDK_VERSION=14.5
-          curl -fsSL -o MacOSX.sdk.tar.xz \
+          curl -fsSL -o "$RUNNER_TEMP/MacOSX.sdk.tar.xz" \
             "https://github.com/joseluisq/macosx-sdks/releases/download/${SDK_VERSION}/MacOSX${SDK_VERSION}.sdk.tar.xz"
           mkdir -p "$HOME/sdk"
-          tar -xJf MacOSX.sdk.tar.xz -C "$HOME/sdk"
+          tar -xJf "$RUNNER_TEMP/MacOSX.sdk.tar.xz" -C "$HOME/sdk"
           echo "sdkroot=$HOME/sdk/MacOSX${SDK_VERSION}.sdk" >> "$GITHUB_OUTPUT"
 
       - name: Run GoReleaser
