@@ -21,7 +21,10 @@ use crate::view::{Login, Theme};
 use askama::Template;
 
 /// `GET /login` — show the SSO button (when available) and the token fallback.
-pub async fn login_page(State(state): State<WebState>, jar: CookieJar) -> Result<Response, WebError> {
+pub async fn login_page(
+    State(state): State<WebState>,
+    jar: CookieJar,
+) -> Result<Response, WebError> {
     if session::token(&jar).is_some() {
         return Ok(Redirect::to("/").into_response());
     }
@@ -52,8 +55,12 @@ pub async fn login_submit(
         // A bad token is a form error, not a server error: re-render login with a note.
         Err(ClientError::Api { status: 401, .. }) => {
             let theme = Theme::from_cookie(&jar);
-            let html =
-                login_html(&state, theme, Some("That token was not accepted.".to_owned())).await?;
+            let html = login_html(
+                &state,
+                theme,
+                Some("That token was not accepted.".to_owned()),
+            )
+            .await?;
             Ok((axum::http::StatusCode::UNAUTHORIZED, Html(html)).into_response())
         }
         Err(err) => Err(err.into()),
@@ -66,7 +73,10 @@ pub async fn login_submit(
 /// `start` endpoint with our callback as the `redirect_uri`. The API drives the IdP
 /// and redirects the browser back to `/auth/callback` carrying `state` + a single-use
 /// handoff `code`.
-pub async fn sso_start(State(state): State<WebState>, jar: CookieJar) -> Result<Response, WebError> {
+pub async fn sso_start(
+    State(state): State<WebState>,
+    jar: CookieJar,
+) -> Result<Response, WebError> {
     let nonce = Uuid::new_v4().to_string();
     let redirect_uri = format!("{}/auth/callback", state.public_url);
     let start_url = format!(
@@ -146,7 +156,11 @@ pub async fn callback(
 
 /// Re-render the login page with an error (carrying along the cleared `sso_state`
 /// cookie in `jar`).
-async fn login_fail(state: &WebState, jar: CookieJar, message: String) -> Result<Response, WebError> {
+async fn login_fail(
+    state: &WebState,
+    jar: CookieJar,
+    message: String,
+) -> Result<Response, WebError> {
     let html = login_html(state, Theme::from_cookie(&jar), Some(message)).await?;
     Ok((axum::http::StatusCode::BAD_REQUEST, jar, Html(html)).into_response())
 }

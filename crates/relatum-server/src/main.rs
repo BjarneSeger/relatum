@@ -95,7 +95,10 @@ async fn main() -> anyhow::Result<()> {
         .with_span_events(FmtSpan::CLOSE)
         .init();
 
-    tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting relatum-server");
+    tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        "starting relatum-server"
+    );
 
     let cli = Cli::parse();
 
@@ -185,7 +188,10 @@ where
             );
             for (id, marker, department) in dev_user_catalogue() {
                 let username = id.as_str().to_owned();
-                if let Err(e) = users.store(User::new(id, username, marker, department)).await {
+                if let Err(e) = users
+                    .store(User::new(id, username, marker, department))
+                    .await
+                {
                     tracing::error!(error = %e, "failed to seed dev user");
                 }
             }
@@ -308,7 +314,16 @@ where
 {
     match sso {
         SsoStore::Disabled => {
-            serve(listen, users, sessions, ids, DisabledSso, departments, reports).await
+            serve(
+                listen,
+                users,
+                sessions,
+                ids,
+                DisabledSso,
+                departments,
+                reports,
+            )
+            .await
         }
         SsoStore::Oidc {
             userinfo_url,

@@ -58,7 +58,11 @@ where
     pub async fn login(&self, creds: Credentials) -> Result<SessionToken, DomainError> {
         let invalid = || DomainError::Unauthorized("invalid or unrecognised SSO login".into());
 
-        let identity = self.sso.check_token(&creds.token).await?.ok_or_else(invalid)?;
+        let identity = self
+            .sso
+            .check_token(&creds.token)
+            .await?
+            .ok_or_else(invalid)?;
         // The provider authenticates; the user must have been provisioned by sync.
         if self.users.lookup(&identity.id).await?.is_none() {
             return Err(invalid());

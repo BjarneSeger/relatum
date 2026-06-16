@@ -69,13 +69,10 @@ impl EphemeralStore for ValkeyEphemeralStore {
         let mut conn = self.conn.clone();
         // GETDEL reads and removes atomically, so a value is consumed exactly once.
         // A missing key (expired or already taken) comes back as `None`.
-        let found: Option<String> = conn
-            .get_del(Self::key(key))
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "valkey ephemeral take failed");
-                DomainError::Backend(format!("valkey take failed: {e}"))
-            })?;
+        let found: Option<String> = conn.get_del(Self::key(key)).await.map_err(|e| {
+            tracing::error!(error = %e, "valkey ephemeral take failed");
+            DomainError::Backend(format!("valkey take failed: {e}"))
+        })?;
         if found.is_none() {
             tracing::debug!("ephemeral key absent");
         }
@@ -118,13 +115,18 @@ mod tests {
     async fn put_take_is_single_use() {
         let url = std::env::var("VALKEY_TEST_URL")
             .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_owned());
-        let store = ValkeyEphemeralStore::connect(&url).await.expect("connect to valkey");
+        let store = ValkeyEphemeralStore::connect(&url)
+            .await
+            .expect("connect to valkey");
 
         assert!(matches!(store.get_status().await, PortStatus::Healthy));
 
         // A unique key keeps concurrent test runs from colliding.
         let key = format!("test-{}", uuid::Uuid::new_v4().simple());
-        store.put(&key, "payload", Duration::from_secs(60)).await.unwrap();
+        store
+            .put(&key, "payload", Duration::from_secs(60))
+            .await
+            .unwrap();
 
         // First take returns the value and consumes it…
         assert_eq!(store.take(&key).await.unwrap().as_deref(), Some("payload"));

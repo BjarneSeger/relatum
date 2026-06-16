@@ -74,7 +74,11 @@ pub trait SSOProvider: StatusBackend {
         &self,
         _app_redirect: &str,
     ) -> impl Future<Output = Result<String, DomainError>> + Send {
-        async { Err(DomainError::Unauthorized("SSO login is not available".into())) }
+        async {
+            Err(DomainError::Unauthorized(
+                "SSO login is not available".into(),
+            ))
+        }
     }
 
     /// Complete the browser login: exchange the authorization `code` (matched to a
@@ -85,7 +89,11 @@ pub trait SSOProvider: StatusBackend {
         _code: &str,
         _state: &str,
     ) -> impl Future<Output = Result<SsoCompletion, DomainError>> + Send {
-        async { Err(DomainError::Unauthorized("SSO login is not available".into())) }
+        async {
+            Err(DomainError::Unauthorized(
+                "SSO login is not available".into(),
+            ))
+        }
     }
 
     /// Stash an obtained access token under a fresh **single-use handoff code**,
@@ -100,7 +108,11 @@ pub trait SSOProvider: StatusBackend {
         &self,
         _access_token: String,
     ) -> impl Future<Output = Result<String, DomainError>> + Send {
-        async { Err(DomainError::Unauthorized("SSO login is not available".into())) }
+        async {
+            Err(DomainError::Unauthorized(
+                "SSO login is not available".into(),
+            ))
+        }
     }
 
     /// Redeem a handoff `code` for the access token it was issued for, **consuming it**
@@ -110,6 +122,10 @@ pub trait SSOProvider: StatusBackend {
         &self,
         _code: &str,
     ) -> impl Future<Output = Result<String, DomainError>> + Send {
-        async { Err(DomainError::Unauthorized("invalid or expired SSO handoff".into())) }
+        async {
+            Err(DomainError::Unauthorized(
+                "invalid or expired SSO handoff".into(),
+            ))
+        }
     }
 }

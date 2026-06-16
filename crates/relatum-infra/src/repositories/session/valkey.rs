@@ -72,13 +72,10 @@ impl SessionRepository for ValkeySessionStore {
     #[tracing::instrument(skip(self, value), level = "debug")]
     async fn lookup(&self, value: &str) -> Result<Option<SessionToken>, DomainError> {
         let mut conn = self.conn.clone();
-        let found: Option<String> = conn
-            .get(Self::key(value))
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "valkey session lookup failed");
-                DomainError::Backend(format!("valkey lookup failed: {e}"))
-            })?;
+        let found: Option<String> = conn.get(Self::key(value)).await.map_err(|e| {
+            tracing::error!(error = %e, "valkey session lookup failed");
+            DomainError::Backend(format!("valkey lookup failed: {e}"))
+        })?;
         // A missing key (expired or never stored) comes back as `None`; the stored
         // payload is the token's subject.
         if found.is_none() {
@@ -93,13 +90,10 @@ impl SessionRepository for ValkeySessionStore {
     #[tracing::instrument(skip(self, value), level = "debug")]
     async fn revoke(&self, value: &str) -> Result<(), DomainError> {
         let mut conn = self.conn.clone();
-        let _: () = conn
-            .del(Self::key(value))
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "valkey session revoke failed");
-                DomainError::Backend(format!("valkey revoke failed: {e}"))
-            })?;
+        let _: () = conn.del(Self::key(value)).await.map_err(|e| {
+            tracing::error!(error = %e, "valkey session revoke failed");
+            DomainError::Backend(format!("valkey revoke failed: {e}"))
+        })?;
         Ok(())
     }
 }

@@ -14,9 +14,9 @@
 use std::fmt;
 use std::str::FromStr;
 
+use jiff::Timestamp;
 use jiff::civil::{ISOWeekDate, Weekday};
 use jiff::tz::TimeZone;
-use jiff::Timestamp;
 
 use crate::DomainError;
 
@@ -40,7 +40,9 @@ impl IsoWeek {
     pub fn new(year: i16, week: i8) -> Result<Self, DomainError> {
         ISOWeekDate::new(year, week, Weekday::Monday)
             .map(|_| Self { year, week })
-            .map_err(|_| DomainError::Invalid(format!("not a valid ISO week: {year:04}-W{week:02}")))
+            .map_err(|_| {
+                DomainError::Invalid(format!("not a valid ISO week: {year:04}-W{week:02}"))
+            })
     }
 
     /// The ISO week containing `ts`, evaluated in UTC.
@@ -137,12 +139,17 @@ mod tests {
     #[test]
     fn rejects_week_53_in_a_short_year() {
         // 2025 has 52 ISO weeks.
-        assert!(matches!(IsoWeek::new(2025, 53), Err(DomainError::Invalid(_))));
+        assert!(matches!(
+            IsoWeek::new(2025, 53),
+            Err(DomainError::Invalid(_))
+        ));
     }
 
     #[test]
     fn rejects_out_of_range_and_malformed_strings() {
-        for bad in ["2026-W00", "2026-W54", "2026-24", "garbage", "2026-W", "-W12"] {
+        for bad in [
+            "2026-W00", "2026-W54", "2026-24", "garbage", "2026-W", "-W12",
+        ] {
             assert!(
                 matches!(bad.parse::<IsoWeek>(), Err(DomainError::Invalid(_))),
                 "expected {bad:?} to be rejected"

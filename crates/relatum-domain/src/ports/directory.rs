@@ -33,7 +33,6 @@ pub struct DirectoryEntry {
 /// Lists the users an external directory (e.g. LDAP) knows about.
 pub trait DirectorySource: StatusBackend {
     /// Fetch every user the directory currently contains.
-    fn list_entries(
-        &self,
-    ) -> impl Future<Output = Result<Vec<DirectoryEntry>, DomainError>> + Send;
+    fn list_entries(&self)
+    -> impl Future<Output = Result<Vec<DirectoryEntry>, DomainError>> + Send;
 }

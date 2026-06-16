@@ -23,7 +23,10 @@ pub async fn css() -> impl IntoResponse {
 /// The vendored htmx runtime (htmx 2.0.9).
 pub async fn htmx_js() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        [(
+            header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
         include_str!("../../static/htmx-2.0.9.min.js"),
     )
 }

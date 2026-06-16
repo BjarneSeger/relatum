@@ -24,7 +24,9 @@ impl From<ClientError> for WebError {
         match err {
             // An expired/invalid session reads the same as not being logged in.
             ClientError::Api { status: 401, .. } => WebError::NeedsLogin,
-            ClientError::Api { status, message, .. } => WebError::Api { status, message },
+            ClientError::Api {
+                status, message, ..
+            } => WebError::Api { status, message },
             ClientError::Transport(detail) => WebError::Api {
                 status: 502,
                 message: format!("could not reach the API: {detail}"),
@@ -49,8 +51,7 @@ impl IntoResponse for WebError {
         match self {
             WebError::NeedsLogin => {
                 // Drop the useless session cookie and send the browser to login.
-                let clear =
-                    format!("{SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+                let clear = format!("{SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
                 (
                     StatusCode::SEE_OTHER,
                     [

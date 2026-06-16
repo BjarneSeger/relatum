@@ -59,12 +59,10 @@ impl LdapDirectory {
     // `self` holds the bind password, so it is skipped from the span fields.
     #[tracing::instrument(skip(self), level = "debug")]
     async fn connect(&self) -> Result<Ldap, DomainError> {
-        let (conn, mut ldap) = LdapConnAsync::new(&self.config.url)
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "ldap connect failed");
-                DomainError::Backend(format!("ldap connect failed: {e}"))
-            })?;
+        let (conn, mut ldap) = LdapConnAsync::new(&self.config.url).await.map_err(|e| {
+            tracing::error!(error = %e, "ldap connect failed");
+            DomainError::Backend(format!("ldap connect failed: {e}"))
+        })?;
         ldap3::drive!(conn);
 
         if self.config.bind_dn.is_empty() {
@@ -131,7 +129,11 @@ impl DirectorySource for LdapDirectory {
 
             // The id and username attributes are required; an entry missing either
             // cannot be reconciled, so skip it rather than fail the whole sync.
-            let Some(id) = entry.attrs.get(&self.config.id_attr).and_then(|v| v.first()) else {
+            let Some(id) = entry
+                .attrs
+                .get(&self.config.id_attr)
+                .and_then(|v| v.first())
+            else {
                 tracing::warn!(dn = %entry.dn, attr = %self.config.id_attr, "ldap entry missing id attribute, skipping");
                 continue;
             };

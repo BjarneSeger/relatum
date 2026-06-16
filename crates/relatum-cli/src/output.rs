@@ -6,9 +6,7 @@
 //! so it is suitable for piping to `jq` while the API is still moving.
 
 use clap::ValueEnum;
-use relatum_client::{
-    ApiInfo, MeView, ReportView, ReviewStatusDto, RoleDto, SsoInfo, UserSummary,
-};
+use relatum_client::{ApiInfo, MeView, ReportView, ReviewStatusDto, RoleDto, SsoInfo, UserSummary};
 use serde::Serialize;
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
@@ -105,8 +103,18 @@ pub fn users_text(users: &[UserSummary]) -> String {
         .iter()
         .map(|u| {
             let dept = u.department.as_deref().unwrap_or("-");
-            let role = u.role.as_ref().map(role_text).unwrap_or_else(|| "inert".to_string());
-            format!("{:<12}  {:<10}  {:<8}  {}", u.username, marker_text(&u.marker), dept, role)
+            let role = u
+                .role
+                .as_ref()
+                .map(role_text)
+                .unwrap_or_else(|| "inert".to_string());
+            format!(
+                "{:<12}  {:<10}  {:<8}  {}",
+                u.username,
+                marker_text(&u.marker),
+                dept,
+                role
+            )
         })
         .collect::<Vec<_>>()
         .join("\n")

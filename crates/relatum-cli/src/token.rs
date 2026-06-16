@@ -116,7 +116,10 @@ fn write_private(path: &Path, contents: &str) -> std::io::Result<()> {
 #[cfg(unix)]
 fn create_dir_private(dir: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::DirBuilderExt;
-    fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(dir)
 }
 
 #[cfg(not(unix))]
@@ -178,7 +181,10 @@ mod tests {
         assert_eq!(mode, 0o600, "token file must be readable only by its owner");
         assert_eq!(fs::read_to_string(&path).unwrap(), "tok-secret");
         // The atomic write must rename the temp away, never leave it behind.
-        assert!(!tmp_path(&path).exists(), "temp file must be renamed/cleaned up");
+        assert!(
+            !tmp_path(&path).exists(),
+            "temp file must be renamed/cleaned up"
+        );
 
         fs::remove_dir_all(&dir).ok();
     }
@@ -193,7 +199,10 @@ mod tests {
         restrict_dir(&inner).unwrap();
 
         let mode = fs::metadata(&inner).unwrap().permissions().mode() & 0o777;
-        assert_eq!(mode, 0o700, "token directory must be accessible only by its owner");
+        assert_eq!(
+            mode, 0o700,
+            "token directory must be accessible only by its owner"
+        );
 
         fs::remove_dir_all(&dir).ok();
     }

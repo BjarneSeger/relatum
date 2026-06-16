@@ -167,9 +167,8 @@ where
     /// inert (no department assigned).
     async fn role_of(&self, id: &UserId) -> Result<Role, DomainError> {
         let user = self.load_user(id).await?;
-        user.role().ok_or_else(|| {
-            DomainError::Forbidden("you have no department assigned".into())
-        })
+        user.role()
+            .ok_or_else(|| DomainError::Forbidden("you have no department assigned".into()))
     }
 
     /// Assert `actor` is a signer in `report`'s department.
@@ -300,7 +299,11 @@ mod tests {
     #[test]
     fn a_user_without_a_department_cannot_author() {
         let svc = service();
-        block_on(svc.users.store(user("inert", DirectoryMarker::Trainee, None))).unwrap();
+        block_on(
+            svc.users
+                .store(user("inert", DirectoryMarker::Trainee, None)),
+        )
+        .unwrap();
         let err = block_on(svc.create_draft(&id("inert"), wk(24), "x".into())).unwrap_err();
         assert!(matches!(err, DomainError::Forbidden(_)));
     }
@@ -338,7 +341,11 @@ mod tests {
     #[test]
     fn a_signer_from_another_department_cannot_sign() {
         let svc = service();
-        block_on(svc.users.store(user("other-sig", DirectoryMarker::Regular, Some("red")))).unwrap();
+        block_on(
+            svc.users
+                .store(user("other-sig", DirectoryMarker::Regular, Some("red"))),
+        )
+        .unwrap();
         let report_id = submitted_report(&svc);
 
         let err = block_on(svc.sign(&id("other-sig"), &report_id)).unwrap_err();
@@ -379,7 +386,11 @@ mod tests {
     #[test]
     fn get_is_forbidden_for_an_unrelated_user() {
         let svc = service();
-        block_on(svc.users.store(user("outsider", DirectoryMarker::Regular, Some("red")))).unwrap();
+        block_on(
+            svc.users
+                .store(user("outsider", DirectoryMarker::Regular, Some("red"))),
+        )
+        .unwrap();
         let report_id = block_on(svc.create_draft(&id(TRAINEE), wk(24), "x".into())).unwrap();
 
         let err = block_on(svc.get(&id("outsider"), &report_id)).unwrap_err();

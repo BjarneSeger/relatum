@@ -421,7 +421,10 @@ mod tests {
     #[test]
     fn cannot_sign_a_draft() {
         let mut r = draft();
-        assert!(matches!(r.sign(signer(), now()), Err(DomainError::Invalid(_))));
+        assert!(matches!(
+            r.sign(signer(), now()),
+            Err(DomainError::Invalid(_))
+        ));
     }
 
     #[test]
@@ -429,7 +432,10 @@ mod tests {
         let mut r = draft();
         r.submit(now()).unwrap();
         r.sign(signer(), now()).unwrap();
-        assert!(matches!(r.sign(signer(), now()), Err(DomainError::Invalid(_))));
+        assert!(matches!(
+            r.sign(signer(), now()),
+            Err(DomainError::Invalid(_))
+        ));
     }
 
     #[test]

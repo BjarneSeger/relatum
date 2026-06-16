@@ -180,7 +180,10 @@ pub struct DirectoryConfig {
     pub user_base: Option<String>,
 
     /// Search filter selecting user entries.
-    #[config(env = "RELATUM_DIRECTORY_USER_FILTER", default = "(objectClass=person)")]
+    #[config(
+        env = "RELATUM_DIRECTORY_USER_FILTER",
+        default = "(objectClass=person)"
+    )]
     pub user_filter: String,
 
     /// Entry attribute whose value becomes the user id — must match the subject an

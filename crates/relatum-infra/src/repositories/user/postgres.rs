@@ -36,7 +36,11 @@ fn user_columns(user: &User) -> (&str, &'static str, Option<&str>) {
         DirectoryMarker::Trainee => "trainee",
         DirectoryMarker::Regular => "regular",
     };
-    (user.username(), marker, user.department().map(DepartmentId::as_str))
+    (
+        user.username(),
+        marker,
+        user.department().map(DepartmentId::as_str),
+    )
 }
 
 /// Reassemble a [`User`] from a selected row. An unknown `marker` is a
@@ -189,7 +193,14 @@ mod tests {
         assert_eq!(found.username(), "alice");
         assert_eq!(*found.marker(), DirectoryMarker::Regular);
         assert_eq!(found.department().unwrap().as_str(), "blue");
-        assert!(store.list_all().await.unwrap().iter().any(|u| u.id().as_str() == id));
+        assert!(
+            store
+                .list_all()
+                .await
+                .unwrap()
+                .iter()
+                .any(|u| u.id().as_str() == id)
+        );
 
         let removed = store.remove(&UserId::new(&id)).await.unwrap();
         assert_eq!(removed.id().as_str(), id);

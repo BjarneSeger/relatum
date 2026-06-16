@@ -41,7 +41,9 @@ impl TryFrom<PortStatus> for DomainError {
             PortStatus::Unhealthy { reason } => {
                 Ok(Self::Backend(format!("Backend is unhealthy: {reason}")))
             }
-            PortStatus::NotConnected => Ok(Self::Backend("Could not connect to backend".to_string())),
+            PortStatus::NotConnected => {
+                Ok(Self::Backend("Could not connect to backend".to_string()))
+            }
         }
     }
 }

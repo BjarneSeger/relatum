@@ -39,13 +39,21 @@ struct Args {
     listen: SocketAddr,
 
     /// Base URL of the relatum API this frontend talks to.
-    #[arg(long, env = "RELATUM_WEB_API_URL", default_value = "http://localhost:8080")]
+    #[arg(
+        long,
+        env = "RELATUM_WEB_API_URL",
+        default_value = "http://localhost:8080"
+    )]
     api_url: String,
 
     /// The web app's own externally-reachable base URL. Used to build the SSO
     /// `redirect_uri` (`{public_url}/auth/callback`) and to decide whether the
     /// session cookie is marked `Secure` (true when this is `https`).
-    #[arg(long, env = "RELATUM_WEB_PUBLIC_URL", default_value = "http://localhost:8081")]
+    #[arg(
+        long,
+        env = "RELATUM_WEB_PUBLIC_URL",
+        default_value = "http://localhost:8081"
+    )]
     public_url: String,
 
     /// Departments offered in the admin assignment dropdown (comma-separated). The

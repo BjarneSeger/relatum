@@ -45,9 +45,12 @@ fn status_columns(
         ReviewStatus::Signed { at, by } => {
             ("signed", Some(at.to_string()), Some(by.as_str()), None)
         }
-        ReviewStatus::Rejected { at, reason } => {
-            ("rejected", Some(at.to_string()), None, Some(reason.as_str()))
-        }
+        ReviewStatus::Rejected { at, reason } => (
+            "rejected",
+            Some(at.to_string()),
+            None,
+            Some(reason.as_str()),
+        ),
     }
 }
 
@@ -328,8 +331,19 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(in_dept.len(), 1);
-        assert!(in_dept.iter().all(|r| r.department().as_str() == department));
-        assert!(store.list_all().await.unwrap().iter().any(|r| r.id().as_str() == id));
+        assert!(
+            in_dept
+                .iter()
+                .all(|r| r.department().as_str() == department)
+        );
+        assert!(
+            store
+                .list_all()
+                .await
+                .unwrap()
+                .iter()
+                .any(|r| r.id().as_str() == id)
+        );
 
         let removed = store.remove(&ReportId::new(&id)).await.unwrap();
         assert_eq!(removed.id().as_str(), id);

@@ -251,7 +251,9 @@ async fn refresh_rotates_the_token_and_logout_revokes_it() {
     assert_ne!(first, second, "refresh should mint a new token");
 
     // The old token is now revoked; the new one still works.
-    let (old, _) = fx.req(Method::GET, "/api/v1/reports", Some(&first), None).await;
+    let (old, _) = fx
+        .req(Method::GET, "/api/v1/reports", Some(&first), None)
+        .await;
     assert_eq!(old, StatusCode::UNAUTHORIZED);
 
     let (status, _) = fx
@@ -270,7 +272,9 @@ async fn me_returns_the_callers_identity_and_role() {
 
     // A trainee sees their own id, role, and department.
     let trainee = fx.login("tr").await;
-    let (status, body) = fx.req(Method::GET, "/api/v1/me", Some(&trainee), None).await;
+    let (status, body) = fx
+        .req(Method::GET, "/api/v1/me", Some(&trainee), None)
+        .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["id"], "tr");
     assert_eq!(body["role"]["role"], "trainee");
@@ -320,7 +324,12 @@ async fn report_lifecycle_create_submit_sign() {
     // It starts as a draft in the trainee's department, visible to its author,
     // carrying the week it covers.
     let (status, body) = fx
-        .req(Method::GET, &format!("/api/v1/reports/{id}"), Some(&trainee), None)
+        .req(
+            Method::GET,
+            &format!("/api/v1/reports/{id}"),
+            Some(&trainee),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"]["state"], "draft");
@@ -358,7 +367,12 @@ async fn report_lifecycle_create_submit_sign() {
 
     // The trainee now sees it signed, with the signer recorded.
     let (_, body) = fx
-        .req(Method::GET, &format!("/api/v1/reports/{id}"), Some(&trainee), None)
+        .req(
+            Method::GET,
+            &format!("/api/v1/reports/{id}"),
+            Some(&trainee),
+            None,
+        )
         .await;
     assert_eq!(body["status"]["state"], "signed");
     assert_eq!(body["status"]["by"], "sig");
@@ -388,7 +402,12 @@ async fn an_instructor_may_read_but_not_sign() {
     let instructor = fx.login("ins").await;
     // An instructor can read any report (global view).
     let (status, _) = fx
-        .req(Method::GET, &format!("/api/v1/reports/{id}"), Some(&instructor), None)
+        .req(
+            Method::GET,
+            &format!("/api/v1/reports/{id}"),
+            Some(&instructor),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     // But cannot sign it.
@@ -420,7 +439,12 @@ async fn a_signer_in_another_department_cannot_see_a_report() {
     // `out` is a signer in `red`, not in the report's `blue` queue.
     let outsider = fx.login("out").await;
     let (status, _) = fx
-        .req(Method::GET, &format!("/api/v1/reports/{id}"), Some(&outsider), None)
+        .req(
+            Method::GET,
+            &format!("/api/v1/reports/{id}"),
+            Some(&outsider),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
@@ -486,7 +510,12 @@ async fn unknown_report_is_not_found() {
     let fx = Fixture::new().await;
     let trainee = fx.login("tr").await;
     let (status, _) = fx
-        .req(Method::GET, "/api/v1/reports/does-not-exist", Some(&trainee), None)
+        .req(
+            Method::GET,
+            "/api/v1/reports/does-not-exist",
+            Some(&trainee),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }

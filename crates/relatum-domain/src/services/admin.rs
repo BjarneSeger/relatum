@@ -104,10 +104,15 @@ mod tests {
         let users = InMemoryUsers::default();
         regular_user(&users, "alice");
 
-        block_on(admin(users.clone()).assign_department(&UserId::new("alice"), DepartmentId::new("blue")))
-            .unwrap();
+        block_on(
+            admin(users.clone())
+                .assign_department(&UserId::new("alice"), DepartmentId::new("blue")),
+        )
+        .unwrap();
 
-        let alice = block_on(users.lookup(&UserId::new("alice"))).unwrap().unwrap();
+        let alice = block_on(users.lookup(&UserId::new("alice")))
+            .unwrap()
+            .unwrap();
         assert_eq!(alice.department().unwrap().as_str(), "blue");
         assert!(alice.role().unwrap().is_signer());
     }
@@ -142,10 +147,7 @@ mod tests {
 
         let listed = block_on(admin(users).list_users()).unwrap();
 
-        let mut names: Vec<String> = listed
-            .iter()
-            .map(|u| u.username().to_owned())
-            .collect();
+        let mut names: Vec<String> = listed.iter().map(|u| u.username().to_owned()).collect();
         names.sort();
         assert_eq!(names, vec!["alice".to_owned(), "bob".to_owned()]);
     }
@@ -154,12 +156,17 @@ mod tests {
     fn clearing_a_department_renders_the_user_inert() {
         let users = InMemoryUsers::default();
         regular_user(&users, "alice");
-        block_on(admin(users.clone()).assign_department(&UserId::new("alice"), DepartmentId::new("blue")))
-            .unwrap();
+        block_on(
+            admin(users.clone())
+                .assign_department(&UserId::new("alice"), DepartmentId::new("blue")),
+        )
+        .unwrap();
 
         block_on(admin(users.clone()).clear_department(&UserId::new("alice"))).unwrap();
 
-        let alice = block_on(users.lookup(&UserId::new("alice"))).unwrap().unwrap();
+        let alice = block_on(users.lookup(&UserId::new("alice")))
+            .unwrap()
+            .unwrap();
         assert!(alice.department().is_none());
         assert!(alice.role().is_none());
     }

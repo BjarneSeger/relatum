@@ -10,9 +10,9 @@ use axum::extract::{Form, Path, State};
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum_extra::extract::CookieJar;
+use jiff::Timestamp;
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
-use jiff::Timestamp;
 use relatum_client::ReviewDecisionDto;
 use serde::Deserialize;
 
@@ -25,7 +25,10 @@ use askama::Template;
 
 /// `GET /` — the caller's dashboard. An inert user (no department) sees a notice
 /// rather than the report list, which would otherwise be `403`.
-pub async fn dashboard(State(state): State<WebState>, jar: CookieJar) -> Result<Response, WebError> {
+pub async fn dashboard(
+    State(state): State<WebState>,
+    jar: CookieJar,
+) -> Result<Response, WebError> {
     let client = state.authed(&jar)?;
     let me = client.me().await?;
     let viewer = Viewer::of(&me);
@@ -132,8 +135,7 @@ pub async fn detail(
     let is_author = viewer.id == report.author;
     let can_edit = is_author && !view::is_signed(&report.status);
     let can_submit = is_author && view::is_submittable(&report.status);
-    let can_review =
-        viewer.kind == Some(RoleKind::Signer) && view::is_submitted(&report.status);
+    let can_review = viewer.kind == Some(RoleKind::Signer) && view::is_submitted(&report.status);
 
     let page = ReportPage {
         theme: Theme::from_cookie(&jar),

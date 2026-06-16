@@ -121,7 +121,10 @@ mod tests {
         }
     }
 
-    fn sync(directory: InMemoryDirectory, users: InMemoryUsers) -> DirectorySync<InMemoryDirectory, InMemoryUsers> {
+    fn sync(
+        directory: InMemoryDirectory,
+        users: InMemoryUsers,
+    ) -> DirectorySync<InMemoryDirectory, InMemoryUsers> {
         DirectorySync::new(directory, users)
     }
 
@@ -134,7 +137,9 @@ mod tests {
         let summary = block_on(sync(dir, users.clone()).sync()).unwrap();
 
         assert_eq!(summary.added, 1);
-        let alice = block_on(users.lookup(&UserId::new("alice"))).unwrap().unwrap();
+        let alice = block_on(users.lookup(&UserId::new("alice")))
+            .unwrap()
+            .unwrap();
         assert!(alice.department().is_none());
         assert_eq!(*alice.marker(), DirectoryMarker::Trainee);
     }
@@ -158,7 +163,9 @@ mod tests {
         let summary = block_on(sync(dir, users.clone()).sync()).unwrap();
 
         assert_eq!(summary.updated, 1);
-        let alice = block_on(users.lookup(&UserId::new("alice"))).unwrap().unwrap();
+        let alice = block_on(users.lookup(&UserId::new("alice")))
+            .unwrap()
+            .unwrap();
         assert_eq!(*alice.marker(), DirectoryMarker::Trainee);
         assert_eq!(alice.department().unwrap().as_str(), "blue");
     }
@@ -177,7 +184,14 @@ mod tests {
         dir.set([entry("alice", DirectoryMarker::Trainee)]);
 
         let summary = block_on(sync(dir, users).sync()).unwrap();
-        assert_eq!(summary, SyncSummary { added: 0, updated: 0, removed: 0 });
+        assert_eq!(
+            summary,
+            SyncSummary {
+                added: 0,
+                updated: 0,
+                removed: 0
+            }
+        );
     }
 
     #[test]
@@ -197,6 +211,10 @@ mod tests {
 
         assert_eq!(summary.added, 1);
         assert_eq!(summary.removed, 1);
-        assert!(block_on(users.lookup(&UserId::new("gone"))).unwrap().is_none());
+        assert!(
+            block_on(users.lookup(&UserId::new("gone")))
+                .unwrap()
+                .is_none()
+        );
     }
 }

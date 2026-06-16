@@ -60,7 +60,9 @@ pub async fn assign(
     Form(form): Form<AssignForm>,
 ) -> Result<Response, WebError> {
     let client = state.authed(&jar)?;
-    client.assign_department(&id, form.department.trim()).await?;
+    client
+        .assign_department(&id, form.department.trim())
+        .await?;
     Ok(Redirect::to("/admin").into_response())
 }
 

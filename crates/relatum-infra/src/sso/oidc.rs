@@ -141,12 +141,9 @@ impl<E> OidcSso<E> {
     /// rejected as `Unauthorized`, matching the contract that an invalid token
     /// yields no identity. Role and department come from the LDAP sync, not here.
     fn map_claims(&self, claims: &HashMap<String, Value>) -> Result<SsoIdentity, DomainError> {
-        let sub = claims
-            .get("sub")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                DomainError::Unauthorized("SSO token rejected: missing sub claim".into())
-            })?;
+        let sub = claims.get("sub").and_then(Value::as_str).ok_or_else(|| {
+            DomainError::Unauthorized("SSO token rejected: missing sub claim".into())
+        })?;
 
         Ok(SsoIdentity {
             id: UserId::new(sub),
@@ -171,7 +168,10 @@ impl<E: EphemeralStore> SSOProvider for OidcSso<E> {
 
         // An unauthenticated/forbidden response means the token is simply invalid,
         // not that the provider is broken — attest no identity.
-        if matches!(response.status(), StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+        if matches!(
+            response.status(),
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+        ) {
             tracing::debug!("sso token rejected by provider");
             return Ok(None);
         }
@@ -183,13 +183,10 @@ impl<E: EphemeralStore> SSOProvider for OidcSso<E> {
             )));
         }
 
-        let claims: HashMap<String, Value> = response
-            .json()
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "decoding OIDC userinfo failed");
-                DomainError::Backend(format!("decoding OIDC userinfo failed: {e}"))
-            })?;
+        let claims: HashMap<String, Value> = response.json().await.map_err(|e| {
+            tracing::error!(error = %e, "decoding OIDC userinfo failed");
+            DomainError::Backend(format!("decoding OIDC userinfo failed: {e}"))
+        })?;
 
         self.map_claims(&claims).map(Some)
     }
@@ -307,19 +304,14 @@ impl<E: EphemeralStore> SSOProvider for OidcSso<E> {
             )));
         }
 
-        let body: HashMap<String, Value> = response
-            .json()
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "decoding OIDC token response failed");
-                DomainError::Backend(format!("decoding OIDC token response failed: {e}"))
-            })?;
+        let body: HashMap<String, Value> = response.json().await.map_err(|e| {
+            tracing::error!(error = %e, "decoding OIDC token response failed");
+            DomainError::Backend(format!("decoding OIDC token response failed: {e}"))
+        })?;
         let access_token = body
             .get("access_token")
             .and_then(Value::as_str)
-            .ok_or_else(|| {
-                DomainError::Backend("OIDC token response missing access_token".into())
-            })?
+            .ok_or_else(|| DomainError::Backend("OIDC token response missing access_token".into()))?
             .to_owned();
 
         Ok(SsoCompletion {
@@ -535,14 +527,20 @@ mod tests {
     #[tokio::test]
     async fn complete_rejects_an_unknown_state() {
         // No HTTP is attempted: an unknown `state` is rejected before any exchange.
-        let err = provider().complete("some-code", "never-seen").await.unwrap_err();
+        let err = provider()
+            .complete("some-code", "never-seen")
+            .await
+            .unwrap_err();
         assert!(matches!(err, DomainError::Unauthorized(_)));
     }
 
     #[tokio::test]
     async fn handoff_is_single_use() {
         let provider = provider();
-        let code = provider.stash_handoff("access-tok".to_owned()).await.unwrap();
+        let code = provider
+            .stash_handoff("access-tok".to_owned())
+            .await
+            .unwrap();
 
         // First redemption returns the stashed token...
         assert_eq!(provider.redeem_handoff(&code).await.unwrap(), "access-tok");

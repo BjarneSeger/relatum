@@ -194,7 +194,10 @@ impl SSOProvider for MockSSO {
         let mut n = self.next_handoff.lock().unwrap();
         *n += 1;
         let code = format!("handoff-{n}");
-        self.handoffs.lock().unwrap().insert(code.clone(), access_token);
+        self.handoffs
+            .lock()
+            .unwrap()
+            .insert(code.clone(), access_token);
         Ok(code)
     }
 

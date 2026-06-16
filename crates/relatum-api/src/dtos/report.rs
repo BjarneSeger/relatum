@@ -38,10 +38,18 @@ impl From<Report> for ReportView {
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum ReviewStatusDto {
     Draft,
-    Submitted { at: String },
+    Submitted {
+        at: String,
+    },
     /// Signed by a signer; `by` is the signer's id.
-    Signed { at: String, by: String },
-    Rejected { at: String, reason: String },
+    Signed {
+        at: String,
+        by: String,
+    },
+    Rejected {
+        at: String,
+        reason: String,
+    },
 }
 
 impl From<&ReviewStatus> for ReviewStatusDto {
