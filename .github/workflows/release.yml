@@ -104,7 +104,7 @@ jobs:
       # The macOS archive was built natively in the cli-macos job; GoReleaser attaches
       # it to the release and SHA256SUMS via extra_files (see .goreleaser.yaml).
       - name: Download macOS archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: relatum-macos-archive
           path: prebuilt
