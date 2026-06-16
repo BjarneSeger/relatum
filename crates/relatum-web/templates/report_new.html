@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block title %}New report · relatum{% endblock %}
+{% block actions %}
+  <a class="btn-ghost" href="/">Back</a>
+  <span class="who">{{ viewer_id }}</span>
+  <form class="inline" method="post" action="/logout"><button class="btn-ghost" type="submit">Sign out</button></form>
+{% endblock %}
+{% block content %}
+<article class="report">
+  <h1>New report</h1>
+  <form class="editor" method="post" action="/reports">
+    <label class="field">Week <span class="hint">— pick any day in it</span>
+      <input type="date" name="day" value="{{ today }}" required>
+    </label>
+    <textarea name="content" rows="16" placeholder="# What I did this week" hx-post="/preview" hx-trigger="keyup changed delay:400ms" hx-target="#preview"></textarea>
+    <div class="editor-actions">
+      <button class="btn-primary" type="submit">Create draft</button>
+    </div>
+  </form>
+  <h2>Preview</h2>
+  <div id="preview" class="markdown"></div>
+</article>
+{% endblock %}

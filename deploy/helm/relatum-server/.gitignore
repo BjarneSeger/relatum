@@ -1,0 +1,3 @@
+# Pulled subchart archives — restore with `helm dependency build` (Chart.lock
+# is committed, so the resolved versions are reproducible).
+charts/*.tgz

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: fmt / clippy / build / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # cmake + a C compiler are needed to build aws-lc-sys (via rustls); libssl-dev
+      # for the openssl-probe path. The build is otherwise fully offline — no
+      # database is required (relatum-infra uses runtime sqlx queries + migrate!,
+      # not the compile-time query! macros).
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config cmake libssl-dev ca-certificates
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: build
+        run: cargo build --release --workspace
+
+      # Plain `cargo test` runs offline; the Postgres integration tests are gated
+      # behind #[ignore] + DATABASE_URL and are intentionally not run here.
+      - name: test
+        run: cargo test --workspace
+
+  helm:
+    name: helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: azure/setup-helm@v5
+      - name: Lint charts
+        run: |
+          helm dependency build deploy/helm/relatum-server
+          helm lint deploy/helm/relatum-server
+          helm lint deploy/helm/relatum-web --set config.publicUrl=https://relatum.example

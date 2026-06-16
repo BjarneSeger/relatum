@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard · relatum{% endblock %}
+{% block actions %}
+  {% if can_create %}<a class="btn" href="/reports/new">New report</a>{% endif %}
+  {% if is_instructor %}<a class="btn" href="/admin">Administration</a>{% endif %}
+  <span class="who">{{ viewer_id }}</span>
+  <form class="inline" method="post" action="/logout"><button class="btn-ghost" type="submit">Sign out</button></form>
+{% endblock %}
+{% block content %}
+<section>
+  <p class="role">{{ role_label }}</p>
+  {% if inert %}
+  <div class="card notice">
+    <h2>No department assigned</h2>
+    <p>Your account is active but not yet assigned to a department, so there is nothing here for you yet. An instructor needs to assign you one.</p>
+  </div>
+  {% else %}
+  <h1>{{ heading }}</h1>
+  {% if rows.is_empty() %}
+  <p class="empty">Nothing here yet.</p>
+  {% else %}
+  <table class="reports">
+    <thead><tr><th>Week</th><th>Author</th><th>Status</th><th class="col-actions"></th></tr></thead>
+    <tbody>
+      {% for row in rows %}{{ row|safe }}{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

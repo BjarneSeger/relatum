@@ -1,0 +1,23 @@
+<tr>
+  <td>{{ username }}</td>
+  <td>{{ marker }}</td>
+  <td>{{ department_label }}</td>
+  <td>{{ role_label }}</td>
+  <td class="row-actions">
+    <form class="assign" method="post" action="/admin/users/{{ id }}/department">
+      {% if free_text %}
+      <input type="text" name="department" placeholder="department" required>
+      {% else %}
+      <select name="department">
+        {% for d in departments %}<option value="{{ d.name }}"{% if d.selected %} selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <button class="btn-sm" type="submit">Assign</button>
+    </form>
+    {% if has_department %}
+    <form class="inline" method="post" action="/admin/users/{{ id }}/department/clear">
+      <button class="btn-sm btn-ghost" type="submit">Clear</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>

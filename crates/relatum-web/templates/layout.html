@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme.attr() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}relatum{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">relatum</a>
+    <div class="actions">{% block actions %}{% endblock %}</div>
+    <form class="theme-form" method="post" action="/theme">
+      <select name="theme" class="theme-select" aria-label="Color theme"
+              hx-post="/theme" hx-trigger="change" hx-swap="none">
+        <option value="auto"{% if theme.is_auto() %} selected{% endif %}>Auto</option>
+        <option value="light"{% if theme.is_light() %} selected{% endif %}>Light</option>
+        <option value="dark"{% if theme.is_dark() %} selected{% endif %}>Dark</option>
+      </select>
+      <noscript><button class="btn-sm" type="submit">Set</button></noscript>
+    </form>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+[package]
+name = "relatum-server"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# The server is the composition root: it wires `relatum-infra` adapters into the
+# `relatum-api` router over the `relatum-domain` services. It depends on infra with
+# default features so every backend (postgres + valkey) compiles and can be picked
+# at startup; the in-memory adapters always build.
+relatum-api = { workspace = true }
+relatum-domain = { workspace = true }
+relatum-infra = { workspace = true }
+
+# `tokio` needs `net` on top of the workspace feature set for `TcpListener` /
+# `axum::serve`.
+tokio = { workspace = true, features = ["net"] }
+axum = { workspace = true }
+serde = { workspace = true }
+confique = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+# Dev-only: enable the in-process `mock` SSO and directory backends so the binary
+# can run and accept logins locally with no external IdP or LDAP. Off by default,
+# so release builds physically lack the code and `RELATUM_SSO_BACKEND=mock` fails to
+# parse (fail-closed). Pulls in `relatum-domain`'s in-memory doubles, which carry
+# the shared dev-user catalogue. NEVER build the production/Helm image with this.
+dev = ["relatum-domain/testing"]

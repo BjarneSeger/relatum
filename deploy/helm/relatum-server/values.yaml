@@ -1,0 +1,243 @@
+# Default values for relatum-server.
+#
+# The server is configured entirely through `RELATUM_*` environment variables
+# (see `crates/relatum-server/src/config.rs`). This chart renders those from the
+# `config`, `database` and `sessions` sections below, keeping connection URLs
+# that carry credentials in Secrets rather than the ConfigMap.
+
+replicaCount: 1
+
+image:
+  # No image is published by the repo yet — point this at your built image.
+  repository: ghcr.io/bjarneseger/relatum-server
+  pullPolicy: IfNotPresent
+  # Defaults to the chart appVersion when empty.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+# Applied to the pod. Sensible non-root defaults — relatum-server needs no
+# elevated privileges.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Port the container listens on. RELATUM_LISTEN is derived as 0.0.0.0:<this>.
+containerPort: 8080
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: relatum.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Gateway API route. Attaches to one or more externally-managed Gateways via
+# parentRefs (this chart ships no Gateway/GatewayClass of its own). Disabled by
+# default and independent of `ingress` above — enable at most one. Requires the
+# Gateway API CRDs installed in the cluster.
+httproute:
+  enabled: false
+  annotations: {}
+  # The Gateway(s) to attach to. Required when enabled. Each entry is a Gateway
+  # API parentRef: at minimum `name`; add `namespace` for a Gateway elsewhere
+  # (which also needs a ReferenceGrant there) and `sectionName`/`port` to bind a
+  # specific listener.
+  parentRefs: []
+    # - name: external-gateway
+    #   namespace: gateway-system
+    #   sectionName: https
+  # Hostnames this route answers for. Empty means every hostname the parent
+  # Gateway's listener allows.
+  hostnames: []
+    # - relatum.local
+  # Routing rules. Each rule may set `matches`/`filters` (passed through). When a
+  # rule omits `backendRefs`, it defaults to this chart's own Service on
+  # .Values.service.port — so the common single-backend case needs no wiring.
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 256Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /api/v1/healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/v1/readyz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Value of the RUST_LOG env var, consumed by the server's tracing EnvFilter.
+logLevel: info
+
+# Extra environment variables passed verbatim to the container.
+extraEnv: []
+  # - name: SOME_FLAG
+  #   value: "1"
+
+# --- Server configuration (the non-secret RELATUM_* vars) -------------------
+config:
+  data:
+    # "postgres" or "memory". With "memory" no database is wired up.
+    backend: postgres
+  sessions:
+    # "redis" (Valkey) or "memory". With "memory" no Valkey is wired up.
+    backend: redis
+    ttlSecs: 86400
+  # Single-sign-on. "disabled" (no IdP; all logins rejected — authentication is
+  # SSO-only) or "oidc". With "oidc" the submitted bearer token is validated against
+  # the provider's userinfo endpoint and mapped to a user by its `sub` claim; the
+  # user's role and department come from the periodic LDAP directory sync, not from
+  # token claims. The userinfo URL is not a secret, so it lives in the ConfigMap.
+  sso:
+    backend: disabled
+    oidc:
+      # OIDC userinfo endpoint, required when backend == "oidc".
+      userinfoUrl: ""
+      # --- Authorization-code flow (server-driven browser login) --------------
+      # IdP authorization endpoint, required when backend == "oidc".
+      authorizeUrl: ""
+      # IdP token endpoint, required when backend == "oidc".
+      tokenUrl: ""
+      # OAuth client id registered with the IdP, required when backend == "oidc".
+      clientId: ""
+      # Space-separated scopes to request during login.
+      scopes: "openid profile groups"
+      # The server's externally reachable base URL, required when backend ==
+      # "oidc". The redirect URI "<publicUrl>/api/v1/auth/sso/callback" must be
+      # registered with the IdP. e.g. "https://relatum.example".
+      publicUrl: ""
+      # OAuth client secret. Provide inline (stored in a managed Secret) or, when
+      # an external secret already holds it, reference it below.
+      clientSecret: ""
+      clientSecretExistingSecret: ""
+      clientSecretExistingSecretKey: "client-secret"
+
+# --- Database (RELATUM_DATA_URL) --------------------------------------------
+# Used when config.data.backend == "postgres". Precedence:
+#   1. database.existingSecret  — reference a URL secret (e.g. from an operator)
+#   2. database.url             — a full connection URL given inline
+#   3. postgresql.enabled       — the bundled in-chart Postgres below
+#   4. externalDatabase         — host/port/user/password parts
+database:
+  # A full `postgres://user:pass@host:5432/db` URL. Stored in a managed Secret.
+  url: ""
+  # Reference an existing Secret holding the full URL — the recommended path
+  # when a Postgres operator already provisions one. Takes precedence over all
+  # other options; nothing is templated for the URL in this case.
+  existingSecret: ""
+  existingSecretKey: "uri"
+
+# Bundled single-instance Postgres. Disabled by default: most clusters provide
+# Postgres through an operator. Enable for a self-contained deployment.
+postgresql:
+  enabled: false
+  image: postgres:18-trixie
+  imagePullPolicy: IfNotPresent
+  username: relatum
+  database: relatum
+  # Leave empty to generate a password on first install and reuse it on upgrade.
+  password: ""
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+  resources: {}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    fsGroup: 999
+
+# Connection parts for an external Postgres (used only when postgresql.enabled
+# is false and neither database.url nor database.existingSecret is set).
+externalDatabase:
+  host: ""
+  port: 5432
+  username: relatum
+  password: ""
+  database: relatum
+  # Appended to the URL, e.g. "?sslmode=require".
+  params: ""
+
+# --- Sessions (RELATUM_SESSIONS_URL) ----------------------------------------
+# Used when config.sessions.backend == "redis". Precedence:
+#   1. sessions.existingSecret — reference a URL secret
+#   2. sessions.url            — a full redis:// URL given inline
+#   3. valkey.enabled          — the bundled Valkey subchart (default, no auth)
+sessions:
+  url: ""
+  existingSecret: ""
+  existingSecretKey: "uri"
+
+# --- Valkey subchart (valkey-io/valkey-helm) --------------------------------
+# Full value reference: `helm show values oci://ghcr.io/valkey-io/valkey-helm/valkey`.
+# Auth is ACL-based and off by default; the derived URL assumes no auth. If you
+# enable `valkey.auth`, set `sessions.url`/`sessions.existingSecret` to a URL
+# that carries the credentials.
+valkey:
+  enabled: true
+  auth:
+    enabled: false
+  service:
+    port: 6379

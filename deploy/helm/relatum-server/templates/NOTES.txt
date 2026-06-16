@@ -1,0 +1,31 @@
+relatum-server has been deployed as release {{ .Release.Name }}.
+
+Backends:
+  data:     {{ .Values.config.data.backend }}{{ if .Values.postgresql.enabled }} (bundled Postgres: {{ include "relatum-server.postgresName" . }}){{ end }}
+  sessions: {{ .Values.config.sessions.backend }}{{ if .Values.valkey.enabled }} (Valkey subchart: {{ include "relatum-server.valkeyName" . }}){{ end }}
+
+Reach the API:
+{{- if .Values.ingress.enabled }}
+  {{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}/api/v1/info
+  {{- end }}
+{{- else if .Values.httproute.enabled }}
+  {{- range .Values.httproute.hostnames }}
+  https://{{ . }}/api/v1/info
+  {{- else }}
+  # HTTPRoute attached to: {{ range $i, $p := $.Values.httproute.parentRefs }}{{ if $i }}, {{ end }}{{ $p.name }}{{ end }}
+  # (no hostnames set — reachable on every hostname the parent Gateway allows)
+  {{- end }}
+{{- else if eq .Values.service.type "ClusterIP" }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "relatum-server.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://localhost:8080/api/v1/info
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} get svc {{ include "relatum-server.fullname" . }}
+{{- end }}
+
+Health endpoints: /api/v1/healthz (liveness), /api/v1/readyz (readiness).
+
+{{ if and (eq .Values.config.data.backend "postgres") (not .Values.postgresql.enabled) (not .Values.database.url) (not .Values.database.existingSecret) (not .Values.externalDatabase.host) -}}
+WARNING: data backend is "postgres" but no database is configured. Set one of
+postgresql.enabled, database.url, database.existingSecret, or externalDatabase.host.
+{{- end }}

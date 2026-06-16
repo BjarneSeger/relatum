@@ -1,0 +1,23 @@
+[package]
+name = "relatum-domain"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# The domain layer is deliberately framework-free: no serde, no utoipa, no web
+# framework, no database driver, so the compiler enforces that business contracts
+# never leak transport or storage concerns. The only dependencies are `thiserror`
+# (the failure vocabulary) and `jiff` — time is a genuine domain concept, so the
+# entities own their own timestamps rather than receiving them as opaque strings.
+thiserror = { workspace = true }
+jiff = { workspace = true }
+
+[features]
+# Expose the in-memory port doubles in [`testing`](crate::testing) as part of the
+# public API, so `relatum-api`'s tests can wire the real services over them. Off
+# by default, so the doubles never ship in a release build. The doubles are also
+# compiled automatically under `cfg(test)` for this crate's own unit tests, which
+# is why those tests need no extra dependency.
+testing = []

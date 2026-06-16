@@ -1,0 +1,28 @@
+relatum-web has been deployed as release {{ .Release.Name }}.
+
+It is a stateless frontend that renders the relatum UI over the API.
+  API it calls:   {{ .Values.config.apiUrl }}
+  Public URL:     {{ .Values.config.publicUrl }}
+
+Open the UI:
+{{- if .Values.ingress.enabled }}
+  {{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}/
+  {{- end }}
+{{- else if .Values.httproute.enabled }}
+  {{- range .Values.httproute.hostnames }}
+  https://{{ . }}/
+  {{- else }}
+  # HTTPRoute attached to: {{ range $i, $p := $.Values.httproute.parentRefs }}{{ if $i }}, {{ end }}{{ $p.name }}{{ end }}
+  # (no hostnames set — reachable on every hostname the parent Gateway allows)
+  {{- end }}
+{{- else if eq .Values.service.type "ClusterIP" }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "relatum-web.fullname" . }} 8081:{{ .Values.service.port }}
+  # then browse http://localhost:8081/  (liveness: http://localhost:8081/healthz)
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} get svc {{ include "relatum-web.fullname" . }}
+{{- end }}
+
+It needs a reachable relatum-server at config.apiUrl ({{ .Values.config.apiUrl }}).
+For SSO logins, register "{{ .Values.config.publicUrl }}/auth/callback" as a redirect URI
+with your identity provider.

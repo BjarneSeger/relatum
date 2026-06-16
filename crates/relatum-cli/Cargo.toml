@@ -1,0 +1,20 @@
+[package]
+name = "relatum-cli"
+version.workspace = true
+edition.workspace = true
+license = "GPL-3.0-only"
+rust-version.workspace = true
+
+[[bin]]
+name = "relatum"
+path = "src/main.rs"
+
+[dependencies]
+relatum-client = { workspace = true }
+
+clap = { workspace = true }
+tokio = { workspace = true }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+directories.workspace = true

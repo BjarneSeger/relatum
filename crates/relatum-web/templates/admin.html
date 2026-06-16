@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+{% block title %}Administration · relatum{% endblock %}
+{% block actions %}
+  <a class="btn-ghost" href="/">Back</a>
+  <span class="who">{{ viewer_id }}</span>
+  <form class="inline" method="post" action="/logout"><button class="btn-ghost" type="submit">Sign out</button></form>
+{% endblock %}
+{% block content %}
+<section>
+  <h1>User administration</h1>
+  <p class="role">Assign a department to activate a user. Regular users become signers; the department scopes which reports they may sign.</p>
+  <table class="users">
+    <thead><tr><th>User</th><th>Directory</th><th>Department</th><th>Role</th><th class="col-actions">Assign</th></tr></thead>
+    <tbody>
+      {% for row in rows %}{{ row|safe }}{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,60 @@
+# GoReleaser config for the relatum CLI (binary "relatum" from crates/relatum-cli).
+# Uses the Rust builder (cargo-zigbuild) to cross-compile from a single Linux
+# runner, and nfpm to emit .deb/.rpm. The release job installs Rust, Zig and
+# cargo-zigbuild first (GoReleaser does not), stages a macOS SDK for the Apple
+# target, and runs `goreleaser release`. See .github/workflows/release.yml.
+version: 2
+
+project_name: relatum
+
+before:
+  hooks:
+    - rustup default stable
+
+builds:
+  - id: relatum
+    builder: rust
+    binary: relatum
+    # Defaults, made explicit: `cargo zigbuild --release`.
+    tool: cargo
+    command: zigbuild
+    flags:
+      - --release
+      # Scope to the CLI package — this is a multi-crate workspace.
+      - -p=relatum-cli
+    targets:
+      - x86_64-unknown-linux-musl
+      - aarch64-unknown-linux-musl
+      - aarch64-apple-darwin
+
+archives:
+  - id: relatum
+    ids:
+      - relatum
+    formats:
+      - tar.xz
+    # One libc per arch (musl on Linux), so os-arch is unambiguous.
+    name_template: "relatum-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+
+# Linux system packages. nfpm only emits these for the Linux builds; the darwin
+# build is skipped automatically.
+nfpms:
+  - id: relatum
+    package_name: relatum
+    ids:
+      - relatum
+    formats:
+      - deb
+      - rpm
+    maintainer: Bjarne Seger <bjarneseger@thehoster.org>
+    description: Command-line client for the relatum API.
+    license: GPL-3.0-only
+    homepage: https://github.com/BjarneSeger/relatum
+    bindir: /usr/bin
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+# `release:` is omitted: GoReleaser auto-detects the GitHub repo from the git
+# remote and creates the release for the pushed tag.

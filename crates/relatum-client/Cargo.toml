@@ -1,0 +1,27 @@
+[package]
+name = "relatum-client"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Generated code (emitted by build.rs into OUT_DIR) leans on these at runtime.
+progenitor-client = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+futures-core = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+# The build script obtains the OpenAPI document straight from the live API routes
+# (`relatum_api::openapi_json`) and runs progenitor over it, so the client cannot
+# drift from the server.
+relatum-api = { workspace = true }
+progenitor = { workspace = true }
+openapiv3 = { workspace = true }
+serde_json = { workspace = true }
+prettyplease = { workspace = true }
+syn = { workspace = true }

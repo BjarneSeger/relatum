@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Report {{ week }} · relatum{% endblock %}
+{% block actions %}
+  <a class="btn-ghost" href="/">Back</a>
+  <span class="who">{{ viewer_id }}</span>
+  <form class="inline" method="post" action="/logout"><button class="btn-ghost" type="submit">Sign out</button></form>
+{% endblock %}
+{% block content %}
+<article class="report">
+  <h1>Report — {{ week }}</h1>
+  <p class="meta">by {{ author }} · {{ department }} · <span class="status status-{{ status_class }}">{{ status_label }}</span></p>
+
+  {% if can_review %}
+  <div class="review card">
+    <form class="inline" method="post" action="/reports/{{ id }}/review">
+      <input type="hidden" name="decision" value="sign">
+      <button class="btn-primary" type="submit">Sign</button>
+    </form>
+    <form class="reject" method="post" action="/reports/{{ id }}/review">
+      <input type="hidden" name="decision" value="reject">
+      <input type="text" name="reason" placeholder="Reason for rejection" required>
+      <button class="btn-ghost" type="submit">Reject</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if can_edit %}
+  <form class="editor" method="post" action="/reports/{{ id }}/revise">
+    <textarea name="content" rows="16" hx-post="/preview" hx-trigger="keyup changed delay:400ms" hx-target="#preview">{{ content }}</textarea>
+    <div class="editor-actions">
+      <button class="btn" type="submit">Save draft</button>
+    </div>
+  </form>
+  {% if can_submit %}
+  <form class="submit-row" method="post" action="/reports/{{ id }}/submit">
+    <button class="btn-primary" type="submit">Submit for review</button>
+    <span class="hint">Submits the saved draft. Save your latest edits first.</span>
+  </form>
+  {% endif %}
+  <h2>Preview</h2>
+  <div id="preview" class="markdown">{{ body_html|safe }}</div>
+  {% else %}
+  <div class="markdown">{{ body_html|safe }}</div>
+  {% endif %}
+</article>
+{% endblock %}

@@ -1,0 +1,30 @@
+{
+  "name": "relatum",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/relatum",
+  "remoteUser": "vscode",
+  "forwardPorts": [8080, 5432, 6379],
+  "portsAttributes": {
+    "8080": { "label": "relatum-server" },
+    "5432": { "label": "postgres" },
+    "6379": { "label": "valkey" }
+  },
+  // Named volumes (target/ and the cargo registry) are created owned by root,
+  // which masks the image-build chown; hand them to vscode before warming the
+  // dependency cache.
+  "postCreateCommand": "sudo chown -R vscode:vscode target /usr/local/cargo/registry && cargo fetch",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  }
+}

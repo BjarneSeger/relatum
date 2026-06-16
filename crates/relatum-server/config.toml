@@ -1,0 +1,34 @@
+# Example relatum-server configuration.
+#
+# Copy to `config.toml` (or point $RELATUM_CONFIG / the first CLI arg at it) and
+# edit. The `[data]` and `[sessions]` sections each pick a backend; only the fields
+# that backend needs are valid.
+
+# Address the HTTP server binds to. Optional; defaults to "0.0.0.0:8080".
+listen = "0.0.0.0:8080"
+
+# --- Data store (users + reports) -------------------------------------------
+# Pick ONE backend.
+
+# PostgreSQL:
+# [data]
+# backend = "postgres"
+# url = "postgres://user:pass@localhost:5432/relatum"
+
+# In-memory (no external service); comment out the block above and use:
+[data]
+backend = "memory"
+
+# --- Session store ----------------------------------------------------------
+# Pick ONE backend. `ttl_secs` is optional and defaults to 86400 (24h).
+
+# Valkey / Redis:
+# [sessions]
+# backend = "redis"
+# url = "redis://127.0.0.1:6379"
+# ttl_secs = 86400
+
+# In-memory; comment out the block above and use:
+[sessions]
+backend = "memory"
+ttl_secs = 86400

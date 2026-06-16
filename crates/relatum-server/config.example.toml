@@ -1,0 +1,40 @@
+# Example relatum-server configuration.
+#
+# The config file is OPTIONAL: the server boots from built-in defaults (all
+# in-memory, listening on 0.0.0.0:8080) and every option can be overridden by an
+# environment variable (see below). Copy this to `config.toml`, point the first CLI
+# argument or $RELATUM_CONFIG at it, or regenerate it any time with:
+#
+#     relatum-server generate-config            # prints the documented template
+#     relatum-server generate-config config.toml
+#
+# Layering: defaults < file < environment (the environment wins).
+
+# Address the HTTP server binds to.        env: RELATUM_LISTEN
+listen = "0.0.0.0:8080"
+
+# --- Data store (users + reports) -------------------------------------------
+[data]
+# Backend: "memory" or "postgres".         env: RELATUM_DATA_BACKEND
+backend = "postgres"
+# Required when backend = "postgres".       env: RELATUM_DATA_URL
+url = "postgres://user:pass@localhost:5432/relatum"
+
+# --- Session store ----------------------------------------------------------
+[sessions]
+# Backend: "memory" or "redis".            env: RELATUM_SESSIONS_BACKEND
+backend = "redis"
+# Required when backend = "redis".          env: RELATUM_SESSIONS_URL
+url = "redis://127.0.0.1:6379"
+# Session lifetime in seconds (default 86400). env: RELATUM_SESSIONS_TTL_SECS
+ttl_secs = 86400
+
+# A fully in-memory setup (no external services) is just:
+#
+#   [data]
+#   backend = "memory"
+#
+#   [sessions]
+#   backend = "memory"
+#
+# or simply running with no config file at all.

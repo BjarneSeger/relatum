@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block title %}Error {{ status }} · relatum{% endblock %}
+{% block content %}
+<section class="card error-page">
+  <h1>{{ status }}</h1>
+  <p>{{ message }}</p>
+  <p><a class="btn" href="/">Back to dashboard</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "relatum-server.fullname" . }}
+  labels:
+    {{- include "relatum-server.labels" . | nindent 4 }}
+data:
+  RUST_LOG: {{ .Values.logLevel | quote }}
+  RELATUM_LISTEN: {{ printf "0.0.0.0:%v" .Values.containerPort | quote }}
+  RELATUM_DATA_BACKEND: {{ .Values.config.data.backend | quote }}
+  RELATUM_SESSIONS_BACKEND: {{ .Values.config.sessions.backend | quote }}
+  RELATUM_SESSIONS_TTL_SECS: {{ .Values.config.sessions.ttlSecs | quote }}
+  RELATUM_SSO_BACKEND: {{ .Values.config.sso.backend | quote }}
+  {{- if eq .Values.config.sso.backend "oidc" }}
+  RELATUM_SSO_USERINFO_URL: {{ .Values.config.sso.oidc.userinfoUrl | quote }}
+  RELATUM_SSO_AUTHORIZE_URL: {{ .Values.config.sso.oidc.authorizeUrl | quote }}
+  RELATUM_SSO_TOKEN_URL: {{ .Values.config.sso.oidc.tokenUrl | quote }}
+  RELATUM_SSO_CLIENT_ID: {{ .Values.config.sso.oidc.clientId | quote }}
+  RELATUM_SSO_SCOPES: {{ .Values.config.sso.oidc.scopes | quote }}
+  RELATUM_SSO_PUBLIC_URL: {{ .Values.config.sso.oidc.publicUrl | quote }}
+  {{- end }}

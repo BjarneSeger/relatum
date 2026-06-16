@@ -1,0 +1,54 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      # Mount the repo; keep the heavy target/ and registry caches in named
+      # volumes so they survive rebuilds and don't thrash the bind mount.
+      - ..:/workspaces/relatum:cached
+      - cargo-target:/workspaces/relatum/target
+      - cargo-registry:/usr/local/cargo/registry
+    command: sleep infinity
+    environment:
+      # Postgres backend (also the DATABASE_URL the #[ignore]d infra tests read).
+      DATABASE_URL: postgres://postgres:pw@postgres:5432/postgres
+      RELATUM_DATA_BACKEND: postgres
+      RELATUM_DATA_URL: postgres://postgres:pw@postgres:5432/postgres
+      # Session store backed by Valkey (Redis protocol).
+      RELATUM_SESSIONS_BACKEND: redis
+      RELATUM_SESSIONS_URL: redis://valkey:6379
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+
+  postgres:
+    image: postgres:18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: pw
+      POSTGRES_DB: postgres
+    volumes:
+      # Postgres 18+ stores data under a version subdir and expects the mount at
+      # /var/lib/postgresql (mounting .../data is rejected as an unused volume).
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:8
+    restart: unless-stopped
+    volumes:
+      - valkey-data:/data
+
+volumes:
+  cargo-target:
+  cargo-registry:
+  postgres-data:
+  valkey-data:

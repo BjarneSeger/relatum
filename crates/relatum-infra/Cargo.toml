@@ -1,0 +1,51 @@
+[package]
+name = "relatum-infra"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Infrastructure implements the domain's ports. It depends on the domain (never
+# the reverse) and on the concrete technology crates the adapters need.
+relatum-domain = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+# Session store: `tokio` (time::Instant + the optional background sweeper) for the
+# in-memory adapter; `redis` only when the `valkey` feature is enabled.
+tokio = { workspace = true }
+redis = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+# Structured logging for adapter-level events (e.g. start-up connect retries).
+tracing = { workspace = true }
+# OIDC SSO adapter: `reqwest` calls the userinfo endpoint, `serde_json` parses the
+# returned claims. Only pulled in by the `oidc` feature.
+reqwest = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+# PKCE (S256) for the OIDC authorization-code flow; only with the `oidc` feature.
+sha2 = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+# LDAP `DirectorySource` adapter: lists directory users for the periodic sync.
+# Only pulled in by the `ldap` feature.
+ldap3 = { workspace = true, optional = true }
+jiff = { workspace = true }
+
+[features]
+default = ["valkey", "postgres", "oidc", "ldap"]
+# Compile the Valkey-backed session store (pulls in `redis`).
+valkey = ["dep:redis"]
+# Compile the PostgreSQL-backed user/report stores (pulls in `sqlx`). The
+# in-memory adapters always build, so turning this off drops the database driver
+# without losing the local/test stores.
+postgres = ["dep:sqlx"]
+# Compile the OIDC userinfo SSO adapter (pulls in `reqwest` + `serde_json`). The
+# no-op `DisabledSso` always builds, so turning this off drops the HTTP client.
+oidc = ["dep:reqwest", "dep:serde_json", "dep:sha2", "dep:base64"]
+# Compile the LDAP-backed `DirectorySource` adapter (pulls in `ldap3`). With it
+# off, the in-memory adapters still provision users by other means.
+ldap = ["dep:ldap3"]
+
+[dev-dependencies]
+# `test-util` enables the paused-clock controls (`start_paused`, `advance`) the
+# in-memory TTL tests use to expire entries without sleeping.
+tokio = { workspace = true, features = ["test-util"] }

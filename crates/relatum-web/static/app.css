@@ -1,0 +1,192 @@
+:root, :root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --fg: #1c2025;
+  --muted: #5b6470;
+  --line: #dfe3e8;
+  --card: #ffffff;
+  --accent: #2f6feb;
+  --accent-fg: #ffffff;
+  --accent-hover: #2860d3;
+  --hover: #eef1f5;
+  --th-bg: #fafbfc;
+  --code-bg: #f3f4f6;
+  --error-bg: #fdecea;
+  --draft: #6b7280;
+  --submitted: #b45309;
+  --signed: #15803d;
+  --rejected: #b91c1c;
+  --radius: 8px;
+}
+
+/* Dark palette. Applied both for an explicit "dark" pick and for "auto" when the OS
+   asks for dark. The two share the same declarations (a media query can't be folded
+   into a selector list), so this block is intentionally repeated below. */
+:root[data-theme="dark"] {
+  --bg: #15181c;
+  --fg: #e6e8eb;
+  --muted: #9aa4b2;
+  --line: #2a2f37;
+  --card: #1c2025;
+  --accent: #5b8cff;
+  --accent-fg: #0b0e12;
+  --accent-hover: #4577f0;
+  --hover: #262b33;
+  --th-bg: #20252c;
+  --code-bg: #22272e;
+  --error-bg: #3a1f1f;
+  --draft: #6b7280;
+  --submitted: #b45309;
+  --signed: #15803d;
+  --rejected: #b91c1c;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --bg: #15181c;
+    --fg: #e6e8eb;
+    --muted: #9aa4b2;
+    --line: #2a2f37;
+    --card: #1c2025;
+    --accent: #5b8cff;
+    --accent-fg: #0b0e12;
+    --accent-hover: #4577f0;
+    --hover: #262b33;
+    --th-bg: #20252c;
+    --code-bg: #22272e;
+    --error-bg: #3a1f1f;
+    --draft: #6b7280;
+    --submitted: #b45309;
+    --signed: #15803d;
+    --rejected: #b91c1c;
+    --radius: 8px;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 700; font-size: 18px; color: var(--fg); }
+.topbar .actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.who { color: var(--muted); font-size: 13px; }
+.inline { display: inline; margin: 0; }
+
+main { max-width: 920px; margin: 28px auto; padding: 0 24px; }
+
+h1 { font-size: 22px; margin: 0 0 16px; }
+h2 { font-size: 17px; margin: 24px 0 8px; }
+.role { color: var(--muted); margin: 0 0 18px; }
+.empty { color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.notice { max-width: 560px; }
+.login { max-width: 380px; margin: 8vh auto 0; }
+.login h1 { margin-bottom: 18px; }
+.divider { text-align: center; color: var(--muted); font-size: 13px; margin: 16px 0; }
+.hint { color: var(--muted); font-size: 13px; }
+.error-msg { background: var(--error-bg); color: var(--rejected); padding: 8px 12px; border-radius: 6px; }
+.error-page h1 { font-size: 40px; color: var(--muted); }
+
+/* Buttons */
+.btn, .btn-primary, .btn-ghost, .btn-sm {
+  display: inline-block;
+  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+}
+.btn:hover, .btn-ghost:hover, .btn-sm:hover { background: var(--hover); text-decoration: none; }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.btn-primary:hover { background: var(--accent-hover); text-decoration: none; }
+.btn-ghost { background: transparent; }
+.btn-sm { padding: 4px 9px; font-size: 13px; }
+.block { display: block; width: 100%; text-align: center; }
+
+/* Forms */
+.field { display: block; margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+.field .hint { font-weight: normal; opacity: 0.8; }
+.field input, input[type=text], input[type=password], input[type=week], select, textarea {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+select, .assign input[type=text] { width: auto; display: inline-block; margin-top: 0; }
+textarea { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; resize: vertical; }
+.editor-actions, .submit-row { margin: 12px 0; display: flex; align-items: center; gap: 12px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { background: var(--th-bg); color: var(--muted); font-weight: 600; font-size: 13px; }
+tr:last-child td { border-bottom: none; }
+.col-actions { width: 1%; }
+.row-actions { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.row-actions form { margin: 0; }
+.assign { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Status badges */
+.status { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; }
+.status-draft { background: var(--draft); }
+.status-submitted { background: var(--submitted); }
+.status-signed { background: var(--signed); }
+.status-rejected { background: var(--rejected); }
+
+/* Report detail */
+.report .meta { color: var(--muted); margin-bottom: 18px; }
+.review { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+.reject { display: flex; gap: 8px; align-items: center; margin: 0; }
+.reject input { margin: 0; }
+
+/* Rendered markdown */
+.markdown {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 20px;
+  min-height: 60px;
+}
+.markdown :first-child { margin-top: 12px; }
+.markdown pre { background: var(--code-bg); padding: 12px; border-radius: 6px; overflow-x: auto; }
+.markdown code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.92em; }
+.markdown table { width: auto; }
+.markdown blockquote { margin: 0; padding-left: 14px; border-left: 3px solid var(--line); color: var(--muted); }
+
+/* Theme picker (topbar) */
+.theme-form { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.theme-select { width: auto; display: inline-block; margin-top: 0; padding: 5px 8px; font-size: 13px; color: var(--muted); }

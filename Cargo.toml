@@ -1,0 +1,87 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/relatum-cli",
+    "crates/relatum-domain",
+    "crates/relatum-infra",
+    "crates/relatum-api",
+    "crates/relatum-server",
+    "crates/relatum-client",
+    "crates/relatum-web",
+]
+default-members = ["crates/relatum-cli"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "AGPL-3.0-only"
+rust-version = "1.94"
+
+[workspace.dependencies]
+# Shared error / serde / async core
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+confique = { version = "0.4", default-features = false, features = ["toml"] }
+clap = { version = "4", features = ["derive", "env"] }
+
+# HTTP transport (relatum-api): axum + tower; http-body-util collects bodies in tests.
+axum = "0.8"
+tower = "0.5"
+http-body-util = "0.1"
+utoipa-axum = "0.2"
+tower-http = { version = "0.7", default-features = false, features = ["trace"] }
+
+# Networking + dates + paths
+jiff = { version = "0.2", features = ["serde"] }
+directories = "6"
+time = { version = "0.3", default-features = false }
+
+# Auth + identifiers (infra port adapters)
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.11"
+base64 = "0.22"
+
+# Local storage
+redis = { version = "1", default-features = false, features = ["tokio-comp", "connection-manager"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "sqlite", "migrate", "macros"] }
+ldap3 = { version = "0.12", default-features = false, features = ["tls-rustls-aws-lc-rs"] }
+
+# External APIs
+utoipa = "5.5"
+
+# HTTP client + OpenAPI codegen (relatum-client): the client's types and request
+# methods are generated at build time from relatum-api's live OpenAPI document, so
+# they cannot drift from the server. `progenitor` runs in the build script;
+# `progenitor-client` + `reqwest` back the generated code at runtime.
+reqwest = { version = "0.13", features = ["json", "form"] }
+progenitor = "0.14"
+progenitor-client = "0.14"
+openapiv3 = "2"
+prettyplease = "0.2"
+syn = "2"
+futures-core = "0.3"
+bytes = "1"
+
+# Internal client crate
+relatum-client = { path = "crates/relatum-client" }
+
+# Templating
+askama = "0.16"
+
+# Web frontend (relatum-web): server-side-rendered HTML over the HTTP API.
+# `axum-extra`'s cookie jar carries the http-only session cookie; report markdown is
+# rendered with `pulldown-cmark` and sanitized with `ammonia` before it reaches a
+# template (report bodies are user content shown to other users).
+axum-extra = { version = "0.12", features = ["cookie"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+ammonia = "4"
+
+# Internal crates (layered backend: api -> domain <- infra; server wires all three)
+relatum-domain = { path = "crates/relatum-domain" }
+relatum-infra = { path = "crates/relatum-infra" }
+relatum-api = { path = "crates/relatum-api" }

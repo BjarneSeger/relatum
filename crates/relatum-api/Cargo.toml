@@ -1,0 +1,35 @@
+[package]
+name = "relatum-api"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# The API (transport) layer depends only on the domain contracts, never on a
+# concrete backend (`relatum-infra`). A future server binary wires the two
+# together by constructing `AppState` from infra adapters; this crate provides the
+# router, handlers, DTOs and OpenAPI document that operate over the domain ports.
+relatum-domain = { workspace = true }
+thiserror = { workspace = true }
+utoipa = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = { workspace = true }
+utoipa-axum = { workspace = true }
+# Per-request span (method+path, status+latency) and structured logging at the
+# transport boundary: the error `IntoResponse`, the auth/report/admin audit events,
+# and the request `TraceLayer`. The domain stays logging-free; observability lives here.
+tracing = { workspace = true }
+tower-http = { workspace = true }
+
+[dev-dependencies]
+# Integration tests drive the router in-process: `tower::ServiceExt::oneshot`
+# feeds a request through it and `http-body-util` collects the response body. The
+# `testing` feature pulls in the domain's in-memory port doubles so the tests wire
+# the real services over them instead of redefining fakes here.
+relatum-domain = { workspace = true, features = ["testing"] }
+tokio = { workspace = true }
+tower = { workspace = true }
+http-body-util = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,20 @@
+apiVersion: v2
+name: relatum-server
+description: |
+  The relatum HTTP backend, with an optional bundled Postgres and a Valkey
+  session store provided by the upstream valkey-io Helm chart.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/BjarneSeger/relatum
+sources:
+  - https://github.com/BjarneSeger/relatum
+maintainers:
+  - name: Bjarne Seger
+dependencies:
+  # Session store. Pulled from the upstream valkey-io community chart over OCI.
+  # Toggled by `valkey.enabled`; values are passed under the `valkey:` key.
+  - name: valkey
+    version: "0.9.4"
+    repository: "oci://ghcr.io/valkey-io/valkey-helm"
+    condition: valkey.enabled

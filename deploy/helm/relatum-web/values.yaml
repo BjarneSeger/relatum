@@ -1,0 +1,153 @@
+# Default values for relatum-web.
+#
+# The frontend is configured entirely through `RELATUM_WEB_*` environment
+# variables (see `crates/relatum-web/src/main.rs`). It is stateless — it holds no
+# database, sessions or secrets — so every value here is non-sensitive and is
+# rendered into a ConfigMap. It only needs to reach a relatum-server at
+# `config.apiUrl`.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/bjarneseger/relatum-web
+  pullPolicy: IfNotPresent
+  # Defaults to the chart appVersion when empty.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+# Applied to the pod. Sensible non-root defaults — relatum-web needs no elevated
+# privileges.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Port the container listens on. RELATUM_WEB_LISTEN is derived as 0.0.0.0:<this>.
+containerPort: 8081
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: relatum.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Gateway API route. Attaches to one or more externally-managed Gateways via
+# parentRefs (this chart ships no Gateway/GatewayClass of its own). Disabled by
+# default and independent of `ingress` above — enable at most one. Requires the
+# Gateway API CRDs installed in the cluster.
+httproute:
+  enabled: false
+  annotations: {}
+  # The Gateway(s) to attach to. Required when enabled. Each entry is a Gateway
+  # API parentRef: at minimum `name`; add `namespace` for a Gateway elsewhere
+  # (which also needs a ReferenceGrant there) and `sectionName`/`port` to bind a
+  # specific listener.
+  parentRefs: []
+    # - name: external-gateway
+    #   namespace: gateway-system
+    #   sectionName: https
+  # Hostnames this route answers for. Empty means every hostname the parent
+  # Gateway's listener allows. Set this to the host in config.publicUrl so the
+  # SSO redirect_uri and the Secure-cookie decision line up.
+  hostnames: []
+    # - relatum.example
+  # Routing rules. Each rule may set `matches`/`filters` (passed through). When a
+  # rule omits `backendRefs`, it defaults to this chart's own Service on
+  # .Values.service.port — so the common single-backend case needs no wiring.
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 50m
+  #   memory: 64Mi
+
+# The frontend is stateless, so it scales freely: the SSO login nonce rides in a
+# browser cookie (not in process memory), so consecutive requests may hit any
+# replica. No external store is required for replicaCount > 1.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+# relatum-web exposes only /healthz (there is no separate readiness endpoint), so
+# both probes target it.
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Value of the RUST_LOG env var, consumed by the frontend's tracing EnvFilter.
+logLevel: info
+
+# Extra environment variables passed verbatim to the container.
+extraEnv: []
+  # - name: SOME_FLAG
+  #   value: "1"
+
+# --- Frontend configuration (the RELATUM_WEB_* vars) ------------------------
+config:
+  # Base URL of the relatum API this frontend talks to (RELATUM_WEB_API_URL).
+  # In-cluster this is typically the server's Service, e.g. http://relatum-server.
+  apiUrl: http://relatum-server
+  # The frontend's own externally-reachable base URL (RELATUM_WEB_PUBLIC_URL).
+  # Used to build the SSO redirect_uri ("<publicUrl>/auth/callback") and to mark
+  # the session cookie Secure (when it starts with "https://"). Required.
+  publicUrl: ""
+  # Departments offered in the admin assignment dropdown (RELATUM_WEB_DEPARTMENTS,
+  # comma-joined). The API stays the authority — unknown departments are rejected —
+  # so this only mirrors the server's configured set.
+  departments: []

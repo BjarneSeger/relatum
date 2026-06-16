@@ -1,0 +1,14 @@
+apiVersion: v2
+name: relatum-web
+description: |
+  The relatum server-side-rendered web frontend: a stateless Axum app that
+  renders HTML over the relatum HTTP API. It holds no database, sessions or
+  secrets of its own, so it scales freely.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/BjarneSeger/relatum
+sources:
+  - https://github.com/BjarneSeger/relatum
+maintainers:
+  - name: Bjarne Seger
