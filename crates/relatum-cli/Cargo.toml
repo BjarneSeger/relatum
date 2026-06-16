@@ -17,4 +17,10 @@ tokio = { workspace = true }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-directories.workspace = true
+keyring-core = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { workspace = true }

@@ -3,7 +3,7 @@
 //! This frontend exists to drive and test a running server while the API is still
 //! moving: every subcommand maps to a single [`relatum_client::Client`] call, so the
 //! CLI owns no HTTP of its own. Its only jobs are to parse arguments, resolve the
-//! session token (a `--token`/env value, or the one `login` saved to disk), and
+//! session token (a `--token`/env value, or the one `login` saved to the keyring), and
 //! render the result as human text or raw JSON.
 //!
 //! Authentication is SSO-only on the server: `login` takes an SSO access token,

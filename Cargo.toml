@@ -38,8 +38,12 @@ tower-http = { version = "0.7", default-features = false, features = ["trace"] }
 
 # Networking + dates + paths
 jiff = { version = "0.2", features = ["serde"] }
-directories = "6"
 time = { version = "0.3", default-features = false }
+
+# OS keyring for the CLI session token (relatum-cli).
+keyring-core = "1"
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
+zbus-secret-service-keyring-store = { version = "1", features = ["crypto-rust"] }
 
 # Auth + identifiers (infra port adapters)
 uuid = { version = "1", features = ["v4"] }

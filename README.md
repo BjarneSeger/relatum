@@ -204,8 +204,10 @@ relatum reports review <id> sign                          # signers, in their de
 relatum users assign-department <user> <department>       # instructors only
 ```
 
-The session token is stored owner-only on disk; `--output json` switches output from
-human-readable text to the server's JSON.
+The session token is kept in the operating system's keyring (the macOS Keychain, or
+the Secret Service on Linux); on a headless host with no keyring, pass `--token` or
+set `RELATUM_TOKEN` instead. `--output json` switches output from human-readable text
+to the server's JSON.
 
 ## License
 
