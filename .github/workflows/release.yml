@@ -39,15 +39,48 @@ jobs:
             --app-version "${{ steps.ver.outputs.version }}"
           helm push "relatum-web-${{ steps.ver.outputs.version }}.tgz" oci://ghcr.io/bjarneseger/charts
 
+  # The macOS binary is built natively here: aws-lc-sys (the rustls crypto backend)
+  # compiles against the runner's platform SDK, sidestepping the zig cross-compile
+  # that floods the log and fails for Apple targets. It is archived here and attached
+  # to the release by the GoReleaser job below (via extra_files; see .goreleaser.yaml).
+  cli-macos:
+    name: build CLI (macOS native)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-darwin
+
+      - name: Build & archive relatum (aarch64-apple-darwin)
+        run: |
+          cargo build --release -p relatum-cli --target aarch64-apple-darwin
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p prebuilt
+          tar -cJf "prebuilt/relatum-${version}-darwin-arm64.tar.xz" \
+            -C target/aarch64-apple-darwin/release relatum
+
+      - name: Upload macOS archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatum-macos-archive
+          path: prebuilt/relatum-*-darwin-arm64.tar.xz
+          if-no-files-found: error
+          retention-days: 1
+
   cli:
     name: release CLI (GoReleaser)
     runs-on: ubuntu-latest
+    needs: cli-macos
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      # aws-lc-sys (via rustls) needs cmake + a C compiler at build time.
+      # cmake + a C compiler build aws-lc-sys for the Linux (musl) cross targets.
       - name: Install system build dependencies
         run: |
           sudo apt-get update
@@ -58,7 +91,7 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
 
-      # cargo-zigbuild uses Zig as the cross-linker (no per-OS toolchains needed).
+      # cargo-zigbuild uses Zig as the cross-linker for the Linux musl targets.
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.13.0
@@ -68,16 +101,13 @@ jobs:
         with:
           tool: cargo-zigbuild
 
-      # cargo-zigbuild links the aarch64-apple-darwin build against the macOS SDK.
-      - name: Stage macOS SDK
-        id: sdk
-        run: |
-          SDK_VERSION=14.5
-          curl -fsSL -o "$RUNNER_TEMP/MacOSX.sdk.tar.xz" \
-            "https://github.com/joseluisq/macosx-sdks/releases/download/${SDK_VERSION}/MacOSX${SDK_VERSION}.sdk.tar.xz"
-          mkdir -p "$HOME/sdk"
-          tar -xJf "$RUNNER_TEMP/MacOSX.sdk.tar.xz" -C "$HOME/sdk"
-          echo "sdkroot=$HOME/sdk/MacOSX${SDK_VERSION}.sdk" >> "$GITHUB_OUTPUT"
+      # The macOS archive was built natively in the cli-macos job; GoReleaser attaches
+      # it to the release and SHA256SUMS via extra_files (see .goreleaser.yaml).
+      - name: Download macOS archive
+        uses: actions/download-artifact@v4
+        with:
+          name: relatum-macos-archive
+          path: prebuilt
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -86,4 +116,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SDKROOT: ${{ steps.sdk.outputs.sdkroot }}

@@ -1,8 +1,12 @@
 # GoReleaser config for the relatum CLI (binary "relatum" from crates/relatum-cli).
-# Uses the Rust builder (cargo-zigbuild) to cross-compile from a single Linux
-# runner, and nfpm to emit .deb/.rpm. The release job installs Rust, Zig and
-# cargo-zigbuild first (GoReleaser does not), stages a macOS SDK for the Apple
-# target, and runs `goreleaser release`. See .github/workflows/release.yml.
+# The Linux targets are cross-compiled on a Linux runner with the Rust builder
+# (cargo-zigbuild) and packaged as .deb/.rpm by nfpm. The macOS binary does not
+# cross-compile cleanly to Apple targets under zig — aws-lc-sys (the rustls crypto
+# backend) drags in the macOS system headers — so it is built and archived natively
+# on a macOS runner, then attached here as an extra file. It is listed under both
+# `release` (so it ships as a release asset) and `checksum` (so it lands in
+# SHA256SUMS). The release job installs Rust, Zig and cargo-zigbuild and downloads
+# that archive into ./prebuilt before running `goreleaser release`. See release.yml.
 version: 2
 
 project_name: relatum
@@ -25,7 +29,6 @@ builds:
     targets:
       - x86_64-unknown-linux-musl
       - aarch64-unknown-linux-musl
-      - aarch64-apple-darwin
 
 archives:
   - id: relatum
@@ -33,11 +36,12 @@ archives:
       - relatum
     formats:
       - tar.xz
-    # One libc per arch (musl on Linux), so os-arch is unambiguous.
+    # One libc per arch (musl on Linux), so os-arch is unambiguous. Matches the
+    # macOS archive built in the cli-macos job (relatum-<ver>-darwin-arm64.tar.xz).
     name_template: "relatum-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
 
 # Linux system packages. nfpm only emits these for the Linux builds; the darwin
-# build is skipped automatically.
+# build never reaches GoReleaser as a build.
 nfpms:
   - id: relatum
     package_name: relatum
@@ -55,6 +59,14 @@ nfpms:
 checksum:
   name_template: SHA256SUMS
   algorithm: sha256
+  # The natively-built macOS archive (downloaded into ./prebuilt) is checksummed
+  # alongside the Linux artifacts so SHA256SUMS covers every release asset.
+  extra_files:
+    - glob: ./prebuilt/relatum-*-darwin-arm64.tar.xz
 
-# `release:` is omitted: GoReleaser auto-detects the GitHub repo from the git
-# remote and creates the release for the pushed tag.
+# `release:` carries only the macOS archive as an extra asset; GoReleaser still
+# auto-detects the GitHub repo from the git remote and creates the release for the
+# pushed tag.
+release:
+  extra_files:
+    - glob: ./prebuilt/relatum-*-darwin-arm64.tar.xz
