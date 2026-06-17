@@ -2,6 +2,7 @@
 {% block title %}Report {{ week }} · relatum{% endblock %}
 {% block actions %}
   <a class="btn-ghost" href="/">Back</a>
+  <a class="btn-ghost" href="/reports/{{ id }}/export">Export PDF</a>
   <a class="btn-ghost" href="/settings/signature">Signature</a>
   <span class="who">{{ viewer_id }}</span>
   <form class="inline" method="post" action="/logout"><button class="btn-ghost" type="submit">Sign out</button></form>

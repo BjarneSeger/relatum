@@ -1,0 +1,22 @@
+[package]
+name = "relatum-export"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Pure-Rust PDF generation. `printpdf` is pulled with default features off to drop
+# its heavy HTML/layout stack (and the pre-0.1 `azul-layout` it brings); we only need
+# the core PDF builder plus PNG image decoding for the signature stamps. Without
+# `text_layout` printpdf does not parse fonts, so we read the bundled DejaVu faces
+# (see `fonts/`) ourselves with `ttf-parser` and hand printpdf the cmap + advances to
+# embed them as Type0/CID fonts. `pulldown-cmark` parses the report's markdown body
+# into the event stream our layout pass walks.
+printpdf = { workspace = true }
+pulldown-cmark = { workspace = true }
+ttf-parser = { workspace = true }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+lopdf = "0.39"

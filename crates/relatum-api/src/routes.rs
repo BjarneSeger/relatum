@@ -100,6 +100,13 @@ where
             "/api/v1/auth/sso/callback",
             axum::routing::get(handlers::sso::callback::<U, S, I, P, R, G>),
         )
+        // Report PDF export: an `application/pdf` body, likewise off the typed surface
+        // (binary responses don't survive OpenAPI client generation cleanly). The
+        // client downloads the bytes directly.
+        .route(
+            "/api/v1/reports/{id}/export",
+            axum::routing::get(handlers::reports::export::<U, S, I, P, R, G>),
+        )
         .with_state(state)
         // Per-request span. Applied last, to the state-erased `Router`, so the layer
         // stays clear of the five port generics. The span carries only the method and

@@ -7,7 +7,7 @@
 //! plain `<form>` submit.
 
 use axum::extract::{Form, Path, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum_extra::extract::CookieJar;
 use jiff::Timestamp;
@@ -161,6 +161,31 @@ pub async fn detail(
         needs_signature,
     };
     Ok(Html(page.render()?).into_response())
+}
+
+/// `GET /reports/{id}/export` — download the report as a PDF. The bytes are rendered
+/// by the API (which alone can read both signatures); this handler just forwards them
+/// to the browser as a file download.
+pub async fn export(
+    State(state): State<WebState>,
+    jar: CookieJar,
+    Path(id): Path<String>,
+) -> Result<Response, WebError> {
+    let client = state.authed(&jar)?;
+    let pdf = client.export_report(&id).await?;
+    let filename = format!("ausbildungsnachweis-{id}.pdf");
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/pdf".to_owned()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{filename}\""),
+            ),
+        ],
+        pdf,
+    )
+        .into_response())
 }
 
 #[derive(Deserialize)]

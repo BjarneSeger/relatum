@@ -8,6 +8,7 @@ members = [
     "crates/relatum-server",
     "crates/relatum-client",
     "crates/relatum-web",
+    "crates/relatum-export",
 ]
 default-members = ["crates/relatum-cli"]
 
@@ -76,6 +77,10 @@ relatum-client = { path = "crates/relatum-client" }
 
 # Templating
 askama = "0.16"
+
+printpdf = { version = "0.9.1", default-features = false, features = ["png"] }
+ttf-parser = "0.25"
+relatum-export = { path = "crates/relatum-export" }
 
 # Web frontend (relatum-web): server-side-rendered HTML over the HTTP API.
 # `axum-extra`'s cookie jar carries the http-only session cookie; report markdown is

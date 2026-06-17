@@ -24,7 +24,8 @@
 
 use crate::errors::DomainError;
 use crate::models::ids::{ReportId, UserId};
-use crate::models::report::Report;
+use crate::models::report::{Report, ReviewStatus};
+use crate::models::signature::StoredSignature;
 use crate::models::users::{Role, User};
 use crate::models::week::IsoWeek;
 use crate::ports::ids::IdGenerator;
@@ -32,6 +33,35 @@ use crate::ports::reportstorage::ReportStorage;
 use crate::ports::signaturestorage::SignatureStorage;
 use crate::ports::userstorage::UserStorage;
 use jiff::Timestamp;
+
+/// Everything the outer layers need to render a report (e.g. as a PDF): the report
+/// itself, the author's display name and signature, and — once signed — the signer's.
+///
+/// Assembled by [`ReportService::export_inputs`] behind the same visibility check as
+/// [`ReportService::get`], so reading another user's name and signature here never
+/// bypasses authorization and needs no separate "read someone else's signature" port.
+#[derive(Debug, Clone)]
+pub struct ReportForExport {
+    /// The report being exported.
+    pub report: Report,
+    /// The author's directory display name.
+    pub author_name: String,
+    /// The author's registered signature, or `None` if they have none on file.
+    pub author_signature: Option<StoredSignature>,
+    /// The signer's details, present only once the report is [`Signed`](ReviewStatus::Signed).
+    pub signer: Option<SignerForExport>,
+}
+
+/// The signer side of a [`ReportForExport`].
+#[derive(Debug, Clone)]
+pub struct SignerForExport {
+    /// The signer's directory display name.
+    pub name: String,
+    /// The signer's registered signature, or `None` if they have none on file.
+    pub signature: Option<StoredSignature>,
+    /// When the report was signed.
+    pub signed_at: Timestamp,
+}
 
 /// Drives the report submit → sign workflow.
 #[derive(Debug, Clone)]
@@ -163,6 +193,43 @@ where
                 "you may not view this report".into(),
             )),
         }
+    }
+
+    /// Gather everything needed to render `id` for `actor`: the report, the author's
+    /// name and signature, and — once signed — the signer's. Visible to exactly the
+    /// same callers as [`get`](Self::get) (author, a signer in the report's
+    /// department, or any instructor); other users get [`DomainError::Forbidden`].
+    ///
+    /// The signature images are read here, server-side, behind that one check, so the
+    /// outer layers never need an endpoint that exposes another user's signature.
+    pub async fn export_inputs(
+        &self,
+        actor: &UserId,
+        id: &ReportId,
+    ) -> Result<ReportForExport, DomainError> {
+        let report = self.get(actor, id).await?;
+        let author = self.load_user(report.author()).await?;
+        let author_signature = self.signatures.get(report.author()).await?;
+
+        let signer = match report.status() {
+            ReviewStatus::Signed { by, at } => {
+                let user = self.load_user(by).await?;
+                let signature = self.signatures.get(by).await?;
+                Some(SignerForExport {
+                    name: user.username().to_owned(),
+                    signature,
+                    signed_at: *at,
+                })
+            }
+            _ => None,
+        };
+
+        Ok(ReportForExport {
+            report,
+            author_name: author.username().to_owned(),
+            author_signature,
+            signer,
+        })
     }
 
     /// List the reports `actor` is involved in:
@@ -493,6 +560,47 @@ mod tests {
             block_on(svc.get(&id(SIGNER), &report_id)).unwrap().status(),
             ReviewStatus::Signed { .. }
         ));
+    }
+
+    #[test]
+    fn export_inputs_gathers_author_and_signer() {
+        let svc = service();
+        let report_id = submitted_report(&svc);
+        block_on(svc.sign(&id(SIGNER), &report_id)).unwrap();
+
+        let ex = block_on(svc.export_inputs(&id(TRAINEE), &report_id)).unwrap();
+        // In the fixtures a user's display name equals their id.
+        assert_eq!(ex.author_name, TRAINEE);
+        assert!(
+            ex.author_signature.is_some(),
+            "author has a signature on file"
+        );
+        let signer = ex.signer.expect("a signed report carries a signer");
+        assert_eq!(signer.name, SIGNER);
+        assert!(signer.signature.is_some(), "signer has a signature on file");
+    }
+
+    #[test]
+    fn export_inputs_for_an_unsigned_report_has_no_signer() {
+        let svc = service();
+        let report_id = submitted_report(&svc); // submitted, not yet signed
+        let ex = block_on(svc.export_inputs(&id(TRAINEE), &report_id)).unwrap();
+        assert!(ex.signer.is_none());
+        assert!(ex.author_signature.is_some());
+    }
+
+    #[test]
+    fn export_inputs_respects_report_visibility() {
+        let svc = service();
+        block_on(
+            svc.users
+                .store(user("outsider", DirectoryMarker::Regular, Some("red"))),
+        )
+        .unwrap();
+        let report_id = block_on(svc.create_draft(&id(TRAINEE), wk(24), "x".into())).unwrap();
+
+        let err = block_on(svc.export_inputs(&id("outsider"), &report_id)).unwrap_err();
+        assert!(matches!(err, DomainError::Forbidden(_)));
     }
 
     #[test]

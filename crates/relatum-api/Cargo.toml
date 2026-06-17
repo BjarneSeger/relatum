@@ -11,6 +11,7 @@ rust-version.workspace = true
 # together by constructing `AppState` from infra adapters; this crate provides the
 # router, handlers, DTOs and OpenAPI document that operate over the domain ports.
 relatum-domain = { workspace = true }
+relatum-export = { workspace = true }
 thiserror = { workspace = true }
 utoipa = { workspace = true }
 serde = { workspace = true }

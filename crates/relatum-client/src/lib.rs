@@ -234,6 +234,50 @@ impl Client {
         Ok(self.api()?.get(id).await?.into_inner())
     }
 
+    /// Download a report rendered as a signed PDF (Ausbildungsnachweis), authorized
+    /// by the same visibility rule as [`get_report`](Self::get_report).
+    ///
+    /// This endpoint returns an `application/pdf` body, which the OpenAPI-generated
+    /// client does not model (binary responses do not survive codegen — the same
+    /// reason signatures are base64-in-JSON). So it is fetched with a direct request
+    /// here, reusing the wrapper's base URL and bearer token, and the error body is
+    /// mapped onto [`ClientError`] just like the generated calls.
+    pub async fn export_report(&self, id: &str) -> Result<Vec<u8>, ClientError> {
+        // Report ids are server-minted opaque tokens, so the path needs no escaping.
+        let url = format!("{}/api/v1/reports/{id}/export", self.base_url);
+        let mut request = reqwest::Client::new().get(&url);
+        if let Some(token) = &self.token {
+            request = request.bearer_auth(token);
+        }
+        let response = request
+            .send()
+            .await
+            .map_err(|e| ClientError::Transport(e.to_string()))?;
+
+        let status = response.status();
+        if status.is_success() {
+            let bytes = response
+                .bytes()
+                .await
+                .map_err(|e| ClientError::Transport(e.to_string()))?;
+            return Ok(bytes.to_vec());
+        }
+        // Mirror the generated error mapping: surface the structured body if present.
+        let code = status.as_u16();
+        match response.json::<types::ErrorResponse>().await {
+            Ok(body) => Err(ClientError::Api {
+                status: code,
+                code: body.code,
+                message: body.message,
+            }),
+            Err(_) => Err(ClientError::Api {
+                status: code,
+                code: "error".to_owned(),
+                message: format!("export request failed with status {code}"),
+            }),
+        }
+    }
+
     /// Start a new draft report covering `week` (ISO `YYYY-Www`), returning its
     /// server id.
     pub async fn create_report(&self, week: &str, content: &str) -> Result<String, ClientError> {

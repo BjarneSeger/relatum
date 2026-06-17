@@ -13,7 +13,7 @@
 mod output;
 mod token;
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -111,6 +111,13 @@ enum ReportsCommand {
         id: String,
         #[command(subcommand)]
         decision: ReviewDecision,
+    },
+    /// Export a report as a signed PDF (Ausbildungsnachweis).
+    Export {
+        id: String,
+        /// Output file. Defaults to `ausbildungsnachweis-<id>.pdf`; use `-` for stdout.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
 }
 
@@ -251,6 +258,26 @@ async fn run_reports(client: &Client, fmt: OutputFormat, cmd: ReportsCommand) ->
             };
             client.review_report(&id, dto).await?;
             output::ack(fmt, "reviewed");
+        }
+        ReportsCommand::Export { id, output } => {
+            let bytes = client.export_report(&id).await?;
+            match output {
+                Some(path) if path.as_os_str() == "-" => {
+                    std::io::stdout()
+                        .write_all(&bytes)
+                        .context("writing PDF to stdout")?;
+                }
+                Some(path) => {
+                    std::fs::write(&path, &bytes)
+                        .with_context(|| format!("writing {}", path.display()))?;
+                    output::ack(fmt, &format!("wrote {}", path.display()));
+                }
+                None => {
+                    let name = format!("ausbildungsnachweis-{id}.pdf");
+                    std::fs::write(&name, &bytes).with_context(|| format!("writing {name}"))?;
+                    output::ack(fmt, &format!("wrote {name}"));
+                }
+            }
         }
     }
     Ok(())

@@ -128,6 +128,36 @@ impl Fixture {
         (status, json)
     }
 
+    /// Send a request and return its status, `Content-Type`, and raw body bytes —
+    /// for endpoints whose body is not JSON (the PDF export).
+    async fn raw(
+        &self,
+        method: Method,
+        uri: &str,
+        token: Option<&str>,
+    ) -> (StatusCode, Option<String>, Vec<u8>) {
+        let mut builder = Request::builder().method(method).uri(uri);
+        if let Some(token) = token {
+            builder = builder.header(AUTHORIZATION, format!("Bearer {token}"));
+        }
+        let request = builder.body(Body::empty()).unwrap();
+        let response = self.router.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+        (status, content_type, bytes)
+    }
+
     /// Log in via SSO and return the session token.
     async fn login(&self, user: &str) -> String {
         let (status, body) = self
@@ -392,6 +422,71 @@ async fn report_lifecycle_create_submit_sign() {
         .await;
     assert_eq!(body["status"]["state"], "signed");
     assert_eq!(body["status"]["by"], "sig");
+
+    // The author can download the signed report as a PDF...
+    let (status, content_type, bytes) = fx
+        .raw(
+            Method::GET,
+            &format!("/api/v1/reports/{id}/export"),
+            Some(&trainee),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type.as_deref(), Some("application/pdf"));
+    assert!(bytes.starts_with(b"%PDF"), "export body is not a PDF");
+
+    // ...a signer in another department may not...
+    let outsider = fx.login("out").await;
+    let (status, _, _) = fx
+        .raw(
+            Method::GET,
+            &format!("/api/v1/reports/{id}/export"),
+            Some(&outsider),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // ...an unknown id is 404, and an anonymous request is 401.
+    let (status, _, _) = fx
+        .raw(
+            Method::GET,
+            "/api/v1/reports/missing/export",
+            Some(&trainee),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _, _) = fx
+        .raw(Method::GET, &format!("/api/v1/reports/{id}/export"), None)
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn a_draft_report_can_be_exported() {
+    // Export is allowed in any state; an unsigned report renders with an empty signer
+    // block rather than being refused.
+    let fx = Fixture::new().await;
+    let trainee = fx.login("tr").await;
+    let (_, body) = fx
+        .req(
+            Method::POST,
+            "/api/v1/reports",
+            Some(&trainee),
+            Some(json!({ "week": "2026-W24", "content": "# Entwurf\n\nNoch nicht eingereicht." })),
+        )
+        .await;
+    let id = body["id"].as_str().unwrap().to_owned();
+
+    let (status, content_type, bytes) = fx
+        .raw(
+            Method::GET,
+            &format!("/api/v1/reports/{id}/export"),
+            Some(&trainee),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type.as_deref(), Some("application/pdf"));
+    assert!(bytes.starts_with(b"%PDF"));
 }
 
 #[tokio::test]

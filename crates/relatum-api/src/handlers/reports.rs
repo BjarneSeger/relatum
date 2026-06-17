@@ -7,7 +7,10 @@
 
 use axum::Json;
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 use relatum_domain::models::ids::ReportId;
 use relatum_domain::models::report::ReviewDecision;
 use relatum_domain::models::week::IsoWeek;
@@ -17,6 +20,8 @@ use relatum_domain::ports::session::SessionRepository;
 use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::userstorage::UserStorage;
+use relatum_domain::services::report::ReportForExport;
+use relatum_export::{ReportDocument, SignatureBlock};
 
 use crate::dtos::{
     CreateReportRequest, CreatedReport, ReportView, ReviewRequest, ReviseReportRequest,
@@ -238,4 +243,94 @@ where
         "report reviewed"
     );
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// `GET /api/v1/reports/{id}/export` — render the report as a signed PDF
+/// (Ausbildungsnachweis).
+///
+/// Deliberately **not** part of the typed OpenAPI surface: it returns a binary
+/// `application/pdf` body, which OpenAPI → client codegen does not model cleanly (the
+/// same reason signatures are base64-in-JSON). It is wired as a plain route in
+/// [`router`](crate::routes::router), alongside the other non-JSON endpoints, and the
+/// client downloads the bytes directly. Visible to exactly the callers who may
+/// [`get`] the report; available in any state, stamping only the signatures on file.
+pub async fn export<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError>
+where
+    U: UserStorage + Clone + 'static,
+    S: SessionRepository + Clone + 'static,
+    I: IdGenerator + Clone + 'static,
+    P: SSOProvider + Clone + 'static,
+    R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
+{
+    let inputs = state
+        .reports
+        .export_inputs(user.id(), &ReportId::new(id))
+        .await?;
+    let week = *inputs.report.week();
+    let document = to_export_document(inputs);
+    let pdf = relatum_export::render_report_pdf(&document);
+
+    let filename = format!("ausbildungsnachweis-{week}.pdf");
+    let headers = [
+        (header::CONTENT_TYPE, "application/pdf".to_owned()),
+        (
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{filename}\""),
+        ),
+    ];
+    tracing::info!(report_id = %week, "report exported as pdf");
+    Ok((headers, pdf).into_response())
+}
+
+/// Map the domain's [`ReportForExport`] onto the renderer's input. Signature image
+/// bytes go in raw (no base64 — that is only an API/JSON concern). The author's date
+/// is the end of the covered week; the signer's is when they signed.
+fn to_export_document(inputs: ReportForExport) -> ReportDocument {
+    let week = inputs.report.week();
+    let week_range = format!(
+        "{} bis {}",
+        fmt_date_civil(week.monday()),
+        fmt_date_civil(week.sunday())
+    );
+
+    let author = SignatureBlock {
+        name: inputs.author_name,
+        png_bytes: signature_bytes(inputs.author_signature.as_ref()),
+        date: fmt_date_civil(week.sunday()),
+    };
+    let signer = inputs.signer.map(|s| SignatureBlock {
+        name: s.name,
+        png_bytes: signature_bytes(s.signature.as_ref()),
+        date: fmt_timestamp(s.signed_at),
+    });
+
+    ReportDocument {
+        author_name: author.name.clone(),
+        department: inputs.report.department().as_str().to_owned(),
+        week_range,
+        report_no: Some(inputs.report.id().as_str().to_owned()),
+        training_year: None,
+        body_markdown: inputs.report.content().to_owned(),
+        author,
+        signer,
+    }
+}
+
+fn signature_bytes(stored: Option<&relatum_domain::models::signature::StoredSignature>) -> Vec<u8> {
+    stored
+        .map(|s| s.signature.bytes().to_vec())
+        .unwrap_or_default()
+}
+
+fn fmt_date_civil(date: jiff::civil::Date) -> String {
+    date.strftime("%d.%m.%Y").to_string()
+}
+
+fn fmt_timestamp(ts: Timestamp) -> String {
+    fmt_date_civil(ts.to_zoned(TimeZone::UTC).date())
 }

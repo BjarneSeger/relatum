@@ -116,6 +116,7 @@ fn router(state: WebState) -> Router {
         .route("/reports/new", get(handlers::reports::new_page))
         .route("/reports", post(handlers::reports::create))
         .route("/reports/{id}", get(handlers::reports::detail))
+        .route("/reports/{id}/export", get(handlers::reports::export))
         .route("/reports/{id}/revise", post(handlers::reports::revise))
         .route("/reports/{id}/submit", post(handlers::reports::submit))
         .route("/reports/{id}/review", post(handlers::reports::review))

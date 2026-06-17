@@ -72,6 +72,23 @@ impl IsoWeek {
         self.week
     }
 
+    /// The Monday this ISO week starts on, as a civil date.
+    ///
+    /// Useful for rendering a human "week of …" range; the `(year, week)` pair was
+    /// validated at construction, so the date always exists.
+    pub fn monday(&self) -> jiff::civil::Date {
+        ISOWeekDate::new(self.year, self.week, Weekday::Monday)
+            .expect("a validated IsoWeek always has a Monday")
+            .date()
+    }
+
+    /// The Sunday this ISO week ends on, as a civil date.
+    pub fn sunday(&self) -> jiff::civil::Date {
+        ISOWeekDate::new(self.year, self.week, Weekday::Sunday)
+            .expect("a validated IsoWeek always has a Sunday")
+            .date()
+    }
+
     /// Whether `self` falls strictly after `other` in chronological ISO order.
     ///
     /// Both weeks store an ISO year (not a calendar year), so comparing the
@@ -155,6 +172,14 @@ mod tests {
                 "expected {bad:?} to be rejected"
             );
         }
+    }
+
+    #[test]
+    fn monday_and_sunday_bound_the_week() {
+        // ISO week 2026-W24 runs Mon 2026-06-08 .. Sun 2026-06-14.
+        let w = IsoWeek::new(2026, 24).unwrap();
+        assert_eq!(w.monday().to_string(), "2026-06-08");
+        assert_eq!(w.sunday().to_string(), "2026-06-14");
     }
 
     #[test]
