@@ -19,4 +19,4 @@ ttf-parser = { workspace = true }
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png"] }
-lopdf = "0.39"
+lopdf = "0.41"
