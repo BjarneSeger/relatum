@@ -64,7 +64,7 @@ jobs:
             -C target/aarch64-apple-darwin/release relatum
 
       - name: Upload macOS archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: relatum-macos-archive
           path: prebuilt/relatum-*-darwin-arm64.tar.xz
