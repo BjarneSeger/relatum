@@ -3073,7 +3073,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-api"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64",
@@ -3094,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-cli"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "apple-native-keyring-store",
@@ -3109,7 +3109,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-client"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64",
  "bytes",
@@ -3128,7 +3128,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-domain"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "jiff",
  "thiserror",
@@ -3136,7 +3136,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-export"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "image",
  "lopdf",
@@ -3147,7 +3147,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-infra"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64",
  "jiff",
@@ -3166,7 +3166,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-server"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3183,7 +3183,7 @@ dependencies = [
 
 [[package]]
 name = "relatum-web"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "ammonia",
  "anyhow",
