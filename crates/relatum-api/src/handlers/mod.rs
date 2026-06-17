@@ -21,5 +21,6 @@
 pub mod auth;
 pub mod meta;
 pub mod reports;
+pub mod signature;
 pub mod sso;
 pub mod users;

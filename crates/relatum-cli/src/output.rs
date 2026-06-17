@@ -6,7 +6,10 @@
 //! so it is suitable for piping to `jq` while the API is still moving.
 
 use clap::ValueEnum;
-use relatum_client::{ApiInfo, MeView, ReportView, ReviewStatusDto, RoleDto, SsoInfo, UserSummary};
+use relatum_client::{
+    ApiInfo, MeView, ReportView, ReviewStatusDto, RoleDto, SignatureFormatDto, SignatureView,
+    SsoInfo, UserSummary,
+};
 use serde::Serialize;
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
@@ -62,6 +65,13 @@ fn role_text(role: &RoleDto) -> String {
         RoleDto::Trainee(dept) => format!("trainee ({dept})"),
         RoleDto::Signer(dept) => format!("signer ({dept})"),
     }
+}
+
+pub fn signature_text(sig: &SignatureView) -> String {
+    let format = match sig.format {
+        SignatureFormatDto::Png => "png",
+    };
+    format!("format:     {format}\nupdated at:  {}", sig.updated_at)
 }
 
 pub fn sso_text(info: &SsoInfo) -> String {

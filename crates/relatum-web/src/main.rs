@@ -120,6 +120,11 @@ fn router(state: WebState) -> Router {
         .route("/reports/{id}/submit", post(handlers::reports::submit))
         .route("/reports/{id}/review", post(handlers::reports::review))
         .route("/preview", post(handlers::reports::preview))
+        // Self-service signature capture (required before submit/sign).
+        .route(
+            "/settings/signature",
+            get(handlers::signature::page).post(handlers::signature::set),
+        )
         // Admin (instructor-only; the API enforces it).
         .route("/admin", get(handlers::admin::page))
         .route(

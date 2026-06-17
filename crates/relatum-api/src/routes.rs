@@ -22,6 +22,7 @@ use tracing::{Span, field};
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::status::StatusBackend;
 use relatum_domain::ports::userstorage::UserStorage;
@@ -38,13 +39,14 @@ use utoipa::OpenApi as _;
 /// `POST`/`GET` on `/reports`) are grouped in one `routes!` so they merge into a
 /// single path entry. Schemas referenced by the `#[utoipa::path]` responses are
 /// collected automatically.
-pub fn api_router<U, S, I, P, R>() -> OpenApiRouter<AppState<U, S, I, P, R>>
+pub fn api_router<U, S, I, P, R, G>() -> OpenApiRouter<AppState<U, S, I, P, R, G>>
 where
     U: UserStorage + StatusBackend + Clone + 'static,
     S: SessionRepository + StatusBackend + Clone + 'static,
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
     OpenApiRouter::with_openapi(ApiDoc::openapi())
         // Service metadata & health.
@@ -67,6 +69,8 @@ where
         .routes(routes!(handlers::reports::get, handlers::reports::revise))
         .routes(routes!(handlers::reports::submit))
         .routes(routes!(handlers::reports::review))
+        // Self-service signatures: set/replace + get the caller's own.
+        .routes(routes!(handlers::signature::set, handlers::signature::get))
         // User administration (instructor-only): listing + department assignment.
         .routes(routes!(handlers::users::list))
         .routes(routes!(
@@ -76,24 +80,25 @@ where
 }
 
 /// Build the application router from a fully-wired [`AppState`], ready to serve.
-pub fn router<U, S, I, P, R>(state: AppState<U, S, I, P, R>) -> Router
+pub fn router<U, S, I, P, R, G>(state: AppState<U, S, I, P, R, G>) -> Router
 where
     U: UserStorage + StatusBackend + Clone + 'static,
     S: SessionRepository + StatusBackend + Clone + 'static,
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
-    let (router, _) = api_router::<U, S, I, P, R>().split_for_parts();
+    let (router, _) = api_router::<U, S, I, P, R, G>().split_for_parts();
     router
         // Browser-facing SSO redirects: not JSON, so kept off the typed API surface.
         .route(
             "/api/v1/auth/sso/start",
-            axum::routing::get(handlers::sso::start::<U, S, I, P, R>),
+            axum::routing::get(handlers::sso::start::<U, S, I, P, R, G>),
         )
         .route(
             "/api/v1/auth/sso/callback",
-            axum::routing::get(handlers::sso::callback::<U, S, I, P, R>),
+            axum::routing::get(handlers::sso::callback::<U, S, I, P, R, G>),
         )
         .with_state(state)
         // Per-request span. Applied last, to the state-erased `Router`, so the layer
@@ -155,13 +160,14 @@ fn is_probe(path: &str) -> bool {
 /// The port generics only fix the router's state type; the document is identical
 /// for any choice, so callers (the export example, tests) may pass throwaway port
 /// types — the handlers are never invoked.
-pub fn openapi<U, S, I, P, R>() -> OpenApi
+pub fn openapi<U, S, I, P, R, G>() -> OpenApi
 where
     U: UserStorage + StatusBackend + Clone + 'static,
     S: SessionRepository + StatusBackend + Clone + 'static,
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
-    api_router::<U, S, I, P, R>().split_for_parts().1
+    api_router::<U, S, I, P, R, G>().split_for_parts().1
 }

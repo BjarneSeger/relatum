@@ -14,6 +14,7 @@
 pub mod auth;
 pub mod meta;
 pub mod report;
+pub mod signature;
 pub mod user;
 
 pub use auth::{AuthSuccess, LoginRequest, SsoExchangeRequest, SsoInfo, Token};
@@ -22,4 +23,5 @@ pub use report::{
     CreateReportRequest, CreatedReport, ReportView, ReviewDecisionDto, ReviewRequest,
     ReviewStatusDto, ReviseReportRequest,
 };
+pub use signature::{SetSignatureRequest, SignatureFormatDto, SignatureView};
 pub use user::{AssignDepartmentRequest, MarkerDto, MeView, RoleDto, UserSummary};

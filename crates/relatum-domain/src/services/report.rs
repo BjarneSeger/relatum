@@ -15,8 +15,12 @@
 //!
 //! It consumes the [`ReportStorage`](crate::ports::reportstorage::ReportStorage)
 //! and [`UserStorage`](crate::ports::userstorage::UserStorage) ports to load and
-//! persist reports and to resolve the acting user's role, and the
-//! [`IdGenerator`](crate::ports::ids::IdGenerator) port to mint fresh report ids.
+//! persist reports and to resolve the acting user's role, the
+//! [`IdGenerator`](crate::ports::ids::IdGenerator) port to mint fresh report ids,
+//! and the [`SignatureStorage`](crate::ports::signaturestorage::SignatureStorage)
+//! port to require that the acting trainee (on submit) or signer (on sign) has a
+//! signature on file — so no report can reach the queue or be signed off without
+//! one to render onto its eventual PDF.
 
 use crate::errors::DomainError;
 use crate::models::ids::{ReportId, UserId};
@@ -25,29 +29,33 @@ use crate::models::users::{Role, User};
 use crate::models::week::IsoWeek;
 use crate::ports::ids::IdGenerator;
 use crate::ports::reportstorage::ReportStorage;
+use crate::ports::signaturestorage::SignatureStorage;
 use crate::ports::userstorage::UserStorage;
 use jiff::Timestamp;
 
 /// Drives the report submit → sign workflow.
 #[derive(Debug, Clone)]
-pub struct ReportService<R, U, I> {
+pub struct ReportService<R, U, I, S> {
     reports: R,
     users: U,
     ids: I,
+    signatures: S,
 }
 
-impl<R, U, I> ReportService<R, U, I>
+impl<R, U, I, S> ReportService<R, U, I, S>
 where
     R: ReportStorage,
     U: UserStorage,
     I: IdGenerator,
+    S: SignatureStorage,
 {
-    /// Wire the service to its storage and id-generation ports.
-    pub fn new(reports: R, users: U, ids: I) -> Self {
+    /// Wire the service to its storage, id-generation, and signature ports.
+    pub fn new(reports: R, users: U, ids: I, signatures: S) -> Self {
         Self {
             reports,
             users,
             ids,
+            signatures,
         }
     }
 
@@ -106,17 +114,23 @@ where
     }
 
     /// Submit a report into its department's queue. Only the author may submit;
-    /// there is no chosen reviewer — every signer in the department sees it.
+    /// there is no chosen reviewer — every signer in the department sees it. The
+    /// author must have a signature on file (so the eventual PDF can carry it);
+    /// otherwise this fails with [`DomainError::Precondition`].
     pub async fn submit(&self, actor: &UserId, id: &ReportId) -> Result<(), DomainError> {
         let mut report = self.load_authored_by(actor, id, "submit").await?;
+        self.ensure_signature(actor).await?;
         report.submit(Timestamp::now())?;
         self.reports.store(&report).await
     }
 
-    /// Sign a submitted report. Only a signer in the report's department may sign.
+    /// Sign a submitted report. Only a signer in the report's department may sign,
+    /// and only once they have a signature on file (else
+    /// [`DomainError::Precondition`]).
     pub async fn sign(&self, actor: &UserId, id: &ReportId) -> Result<(), DomainError> {
         let mut report = self.load(id).await?;
         self.ensure_signer_for(actor, &report).await?;
+        self.ensure_signature(actor).await?;
         report.sign(actor.clone(), Timestamp::now())?;
         self.reports.store(&report).await
     }
@@ -181,6 +195,20 @@ where
         }
     }
 
+    /// Assert `actor` has a signature on file. Required before a trainee may submit
+    /// a report or a signer may sign one, so the eventual PDF always has a mark to
+    /// render. Surfaces as [`DomainError::Precondition`] so the API can prompt the
+    /// caller to register one.
+    async fn ensure_signature(&self, actor: &UserId) -> Result<(), DomainError> {
+        if self.signatures.get(actor).await?.is_some() {
+            Ok(())
+        } else {
+            Err(DomainError::Precondition(
+                "register a signature before submitting or signing a report".into(),
+            ))
+        }
+    }
+
     /// Load a user by id, mapping a missing one to [`DomainError::NotFound`].
     async fn load_user(&self, id: &UserId) -> Result<User, DomainError> {
         self.users
@@ -220,9 +248,11 @@ mod tests {
     use crate::models::ids::DepartmentId;
     use crate::models::report::ReviewStatus;
     use crate::models::users::{DirectoryMarker, User};
-    use crate::testing::{InMemoryReports, InMemoryUsers, SeqIds, block_on};
+    use crate::testing::{
+        InMemoryReports, InMemorySignatures, InMemoryUsers, SeqIds, block_on, dev_signature,
+    };
 
-    type Reports = ReportService<InMemoryReports, InMemoryUsers, SeqIds>;
+    type Reports = ReportService<InMemoryReports, InMemoryUsers, SeqIds, InMemorySignatures>;
 
     const INSTRUCTOR: &str = "ins";
     const SIGNER: &str = "sig";
@@ -239,16 +269,33 @@ mod tests {
     }
 
     /// A service seeded with an instructor, a signer, and a trainee, all in `blue`.
+    /// The trainee and signer have registered signatures, so the submit/sign gate is
+    /// satisfied in the workflow tests; the gate tests use fresh users without one.
     fn service() -> Reports {
         let users = InMemoryUsers::default();
         block_on(users.store(user(INSTRUCTOR, DirectoryMarker::Instructor, Some(DEPT)))).unwrap();
         block_on(users.store(user(SIGNER, DirectoryMarker::Regular, Some(DEPT)))).unwrap();
         block_on(users.store(user(TRAINEE, DirectoryMarker::Trainee, Some(DEPT)))).unwrap();
-        ReportService::new(InMemoryReports::default(), users, SeqIds::default())
+
+        let signatures = InMemorySignatures::default();
+        block_on(signatures.set(&id(TRAINEE), dev_signature(), seed_at())).unwrap();
+        block_on(signatures.set(&id(SIGNER), dev_signature(), seed_at())).unwrap();
+
+        ReportService::new(
+            InMemoryReports::default(),
+            users,
+            SeqIds::default(),
+            signatures,
+        )
     }
 
     fn id(name: &str) -> UserId {
         UserId::new(name)
+    }
+
+    /// A fixed instant used when seeding signatures in tests.
+    fn seed_at() -> Timestamp {
+        "2026-06-10T12:00:00Z".parse().unwrap()
     }
 
     /// A valid ISO week to file test reports under.
@@ -350,6 +397,71 @@ mod tests {
 
         let err = block_on(svc.sign(&id("other-sig"), &report_id)).unwrap_err();
         assert!(matches!(err, DomainError::Forbidden(_)));
+    }
+
+    #[test]
+    fn a_trainee_without_a_signature_cannot_submit() {
+        let svc = service();
+        // A fresh trainee in the department, no signature on file.
+        block_on(
+            svc.users
+                .store(user("tr2", DirectoryMarker::Trainee, Some(DEPT))),
+        )
+        .unwrap();
+        let report_id = block_on(svc.create_draft(&id("tr2"), wk(24), "# done".into())).unwrap();
+
+        let err = block_on(svc.submit(&id("tr2"), &report_id)).unwrap_err();
+        assert!(matches!(err, DomainError::Precondition(_)));
+        // The failed submit must not advance the report.
+        assert!(matches!(
+            block_on(svc.reports.lookup(&report_id))
+                .unwrap()
+                .unwrap()
+                .status(),
+            ReviewStatus::Draft
+        ));
+
+        // Once they register a signature, the same submit succeeds.
+        block_on(svc.signatures.set(&id("tr2"), dev_signature(), seed_at())).unwrap();
+        block_on(svc.submit(&id("tr2"), &report_id)).unwrap();
+        assert!(matches!(
+            block_on(svc.reports.lookup(&report_id))
+                .unwrap()
+                .unwrap()
+                .status(),
+            ReviewStatus::Submitted { .. }
+        ));
+    }
+
+    #[test]
+    fn a_signer_without_a_signature_cannot_sign() {
+        let svc = service();
+        // A second signer in the department, no signature on file.
+        block_on(
+            svc.users
+                .store(user("sig2", DirectoryMarker::Regular, Some(DEPT))),
+        )
+        .unwrap();
+        let report_id = submitted_report(&svc);
+
+        let err = block_on(svc.sign(&id("sig2"), &report_id)).unwrap_err();
+        assert!(matches!(err, DomainError::Precondition(_)));
+        // Still awaiting a signature — the failed sign must not advance it.
+        assert!(matches!(
+            block_on(svc.reports.lookup(&report_id))
+                .unwrap()
+                .unwrap()
+                .status(),
+            ReviewStatus::Submitted { .. }
+        ));
+
+        // After registering, the signer can sign.
+        block_on(svc.signatures.set(&id("sig2"), dev_signature(), seed_at())).unwrap();
+        block_on(svc.sign(&id("sig2"), &report_id)).unwrap();
+        match block_on(svc.get(&id("sig2"), &report_id)).unwrap().status() {
+            ReviewStatus::Signed { by, .. } => assert_eq!(by.as_str(), "sig2"),
+            other => panic!("expected Signed, got {other:?}"),
+        }
     }
 
     #[test]

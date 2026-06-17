@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::status::StatusBackend;
 use relatum_domain::ports::userstorage::UserStorage;
@@ -28,8 +29,8 @@ use crate::state::AppState;
         (status = 500, description = "Internal error", body = ErrorResponse),
     ),
 )]
-pub async fn info<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn info<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
 ) -> Result<Json<ApiInfo>, ApiError>
 where
     U: UserStorage + Clone + 'static,
@@ -37,6 +38,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let info = state.meta.info().await?;
     Ok(Json(info.into()))
@@ -52,8 +54,8 @@ where
         (status = 502, description = "Service is not live"),
     ),
 )]
-pub async fn healthz<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn healthz<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
 ) -> Result<StatusCode, ApiError>
 where
     U: UserStorage + Clone + 'static,
@@ -61,6 +63,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     state.meta.health().await?;
     Ok(StatusCode::OK)
@@ -76,8 +79,8 @@ where
         (status = 502, description = "Service is up but not ready", body = ErrorResponse),
     ),
 )]
-pub async fn readyz<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn readyz<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
 ) -> Result<StatusCode, ApiError>
 where
     U: UserStorage + StatusBackend + Clone + 'static,
@@ -85,6 +88,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
     state.meta.readiness().await?;
     Ok(StatusCode::OK)

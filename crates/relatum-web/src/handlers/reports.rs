@@ -7,13 +7,13 @@
 //! plain `<form>` submit.
 
 use axum::extract::{Form, Path, State};
-use axum::http::HeaderMap;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum_extra::extract::CookieJar;
 use jiff::Timestamp;
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
-use relatum_client::ReviewDecisionDto;
+use relatum_client::{ClientError, ReviewDecisionDto};
 use serde::Deserialize;
 
 use crate::error::WebError;
@@ -34,6 +34,9 @@ pub async fn dashboard(
     let viewer = Viewer::of(&me);
     let can_create = viewer.is_trainee();
     let is_instructor = viewer.is_instructor();
+    // A trainee/signer with no signature on file is prompted to register one before
+    // they can submit or sign (the server enforces it; this surfaces it up front).
+    let needs_signature = viewer.signs_reports() && !viewer.has_signature;
 
     let Some(kind) = viewer.kind else {
         let page = Dashboard {
@@ -43,6 +46,7 @@ pub async fn dashboard(
             inert: true,
             can_create: false,
             is_instructor: false,
+            needs_signature: false,
             heading: String::new(),
             rows: Vec::new(),
         };
@@ -71,6 +75,7 @@ pub async fn dashboard(
         inert: false,
         can_create,
         is_instructor,
+        needs_signature,
         heading,
         rows,
     };
@@ -136,6 +141,8 @@ pub async fn detail(
     let can_edit = is_author && !view::is_signed(&report.status);
     let can_submit = is_author && view::is_submittable(&report.status);
     let can_review = viewer.kind == Some(RoleKind::Signer) && view::is_submitted(&report.status);
+    // The action the viewer could take here needs a signature they don't have yet.
+    let needs_signature = (can_submit || can_review) && !viewer.has_signature;
 
     let page = ReportPage {
         theme: Theme::from_cookie(&jar),
@@ -151,6 +158,7 @@ pub async fn detail(
         can_edit,
         can_submit,
         can_review,
+        needs_signature,
     };
     Ok(Html(page.render()?).into_response())
 }
@@ -181,7 +189,9 @@ pub async fn submit(
     Path(id): Path<String>,
 ) -> Result<Response, WebError> {
     let client = state.authed(&jar)?;
-    client.submit_report(&id).await?;
+    if let Err(err) = client.submit_report(&id).await {
+        return redirect_if_needs_signature(err, &headers);
+    }
     if is_htmx(&headers) {
         let report = client.get_report(&id).await?;
         // Only a trainee (the author) can reach Submit, so render the row as one.
@@ -189,6 +199,24 @@ pub async fn submit(
     } else {
         Ok(Redirect::to(&format!("/reports/{id}")).into_response())
     }
+}
+
+/// If `err` is the "register a signature first" precondition (HTTP 428), send the
+/// caller to the signature settings page — an `HX-Redirect` so htmx does a full
+/// navigation rather than swapping the page into a table row, or a 303 for a plain
+/// form. Any other error propagates as a normal [`WebError`].
+fn redirect_if_needs_signature(
+    err: ClientError,
+    headers: &HeaderMap,
+) -> Result<Response, WebError> {
+    if let ClientError::Api { status: 428, .. } = &err {
+        let target = "/settings/signature";
+        if is_htmx(headers) {
+            return Ok((StatusCode::OK, [("HX-Redirect", target)]).into_response());
+        }
+        return Ok(Redirect::to(target).into_response());
+    }
+    Err(err.into())
 }
 
 #[derive(Deserialize)]
@@ -217,7 +245,9 @@ pub async fn review(
             });
         }
     };
-    client.review_report(&id, decision).await?;
+    if let Err(err) = client.review_report(&id, decision).await {
+        return redirect_if_needs_signature(err, &headers);
+    }
 
     if is_htmx(&headers) {
         let report = client.get_report(&id).await?;

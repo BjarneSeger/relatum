@@ -21,6 +21,7 @@ use utoipa::OpenApi;
         (name = "meta", description = "Service metadata and health."),
         (name = "auth", description = "Session-based authentication."),
         (name = "reports", description = "The trainee to instructor report workflow."),
+        (name = "signatures", description = "Per-user signature images for report sign-off."),
         (name = "users", description = "User management (instructor-only)."),
     ),
 )]

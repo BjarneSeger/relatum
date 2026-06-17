@@ -10,14 +10,17 @@
 //! out-of-process client generator (e.g. `relatum-client`'s build script), so the
 //! generated client cannot drift from the served routes.
 
+use jiff::Timestamp;
 use relatum_domain::errors::DomainError;
 use relatum_domain::models::auth::SessionToken;
 use relatum_domain::models::ids::{DepartmentId, ReportId, UserId};
 use relatum_domain::models::report::Report;
+use relatum_domain::models::signature::{Signature, StoredSignature};
 use relatum_domain::models::users::User;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::{SSOProvider, SsoIdentity};
 use relatum_domain::ports::status::{PortStatus, StatusBackend};
 use relatum_domain::ports::userstorage::UserStorage;
@@ -91,10 +94,18 @@ impl SSOProvider for Dummy {
         unimplemented!()
     }
 }
+impl SignatureStorage for Dummy {
+    async fn set(&self, _: &UserId, _: Signature, _: Timestamp) -> Result<(), DomainError> {
+        unimplemented!()
+    }
+    async fn get(&self, _: &UserId) -> Result<Option<StoredSignature>, DomainError> {
+        unimplemented!()
+    }
+}
 
 /// The full OpenAPI document for the API, derived from the live routes.
 pub fn openapi_doc() -> OpenApi {
-    crate::routes::openapi::<Dummy, Dummy, Dummy, Dummy, Dummy>()
+    crate::routes::openapi::<Dummy, Dummy, Dummy, Dummy, Dummy, Dummy>()
 }
 
 /// The full OpenAPI document, serialized as pretty-printed JSON.

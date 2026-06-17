@@ -14,6 +14,8 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{Method, Request, StatusCode};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as B64;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -28,9 +30,10 @@ use relatum_domain::services::admin::UserAdmin;
 use relatum_domain::services::auth::Authenticator;
 use relatum_domain::services::meta::MetaService;
 use relatum_domain::services::report::ReportService;
+use relatum_domain::services::signature::SignatureService;
 use relatum_domain::testing::{
-    InMemoryReports, InMemorySessions, InMemoryUsers, MockSSO, SeqIds, dev_token,
-    dev_user_catalogue,
+    InMemoryReports, InMemorySessions, InMemorySignatures, InMemoryUsers, MockSSO, SeqIds,
+    dev_signature, dev_token, dev_user_catalogue,
 };
 
 // ----------------------------------------------------------------------------
@@ -49,10 +52,14 @@ impl Fixture {
     async fn new() -> Self {
         let users = InMemoryUsers::default();
         let sso = MockSSO::default();
+        let signatures = InMemorySignatures::default();
+        let signature_service = SignatureService::new(signatures.clone());
 
         for (id, marker, department) in dev_user_catalogue() {
             let username = id.as_str().to_owned();
             sso.register(&dev_token(id.as_str()), SsoIdentity { id: id.clone() });
+            // Seed a signature so the submit/sign gate is satisfied for the dev users.
+            signature_service.set(&id, dev_signature()).await.unwrap();
             users
                 .store(User::new(id, username, marker, department))
                 .await
@@ -72,11 +79,17 @@ impl Fixture {
                 sessions.clone(),
                 reports.clone(),
             ),
-            ReportService::new(reports.clone(), users.clone(), ids.clone()),
+            ReportService::new(
+                reports.clone(),
+                users.clone(),
+                ids.clone(),
+                signatures.clone(),
+            ),
             UserAdmin::new(
                 users.clone(),
                 DepartmentRegistry::new([DepartmentId::new("blue"), DepartmentId::new("red")]),
             ),
+            signature_service,
         );
 
         Fixture {
@@ -153,6 +166,8 @@ fn openapi_spec_covers_every_route() {
         "MarkerDto",
         "SsoInfo",
         "SsoExchangeRequest",
+        "SetSignatureRequest",
+        "SignatureView",
     ] {
         assert!(spec.contains(schema), "missing schema {schema}");
     }
@@ -170,6 +185,7 @@ fn openapi_spec_covers_every_route() {
         "/api/v1/reports/{id}",
         "/api/v1/reports/{id}/submit",
         "/api/v1/reports/{id}/review",
+        "/api/v1/me/signature",
         "/api/v1/users",
         "/api/v1/users/{id}/department",
     ] {
@@ -447,6 +463,68 @@ async fn a_signer_in_another_department_cannot_see_a_report() {
         )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a_signer_can_set_get_and_replace_their_signature() {
+    let fx = Fixture::new().await;
+    let signer = fx.login("sig").await;
+
+    // The dev fixture seeds every user a signature, so `/me` already reports one.
+    let (status, body) = fx.req(Method::GET, "/api/v1/me", Some(&signer), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["has_signature"], true);
+
+    // Replace it with a fresh PNG (magic bytes + a little payload).
+    let png = [0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10, 0x20];
+    let b64 = B64.encode(png);
+    let (status, _) = fx
+        .req(
+            Method::PUT,
+            "/api/v1/me/signature",
+            Some(&signer),
+            Some(json!({ "format": "png", "data_base64": b64 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, body) = fx
+        .req(Method::GET, "/api/v1/me/signature", Some(&signer), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["format"], "png");
+    assert_eq!(body["data_base64"], b64);
+}
+
+#[tokio::test]
+async fn an_instructor_cannot_register_a_signature() {
+    let fx = Fixture::new().await;
+    let instructor = fx.login("ins").await;
+    let png = [0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01];
+    let (status, _) = fx
+        .req(
+            Method::PUT,
+            "/api/v1/me/signature",
+            Some(&instructor),
+            Some(json!({ "format": "png", "data_base64": B64.encode(png) })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a_non_png_signature_is_rejected() {
+    let fx = Fixture::new().await;
+    let trainee = fx.login("tr").await;
+    let (status, _) = fx
+        .req(
+            Method::PUT,
+            "/api/v1/me/signature",
+            Some(&trainee),
+            Some(json!({ "format": "png", "data_base64": B64.encode(b"not a png") })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]

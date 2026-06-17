@@ -190,3 +190,8 @@ tr:last-child td { border-bottom: none; }
 /* Theme picker (topbar) */
 .theme-form { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .theme-select { width: auto; display: inline-block; margin-top: 0; padding: 5px 8px; font-size: 13px; color: var(--muted); }
+
+/* Signature capture */
+.signature-form { margin-top: 16px; }
+.signature-pad { display: block; width: 100%; max-width: 500px; height: auto; aspect-ratio: 500 / 180; background: #fff; border: 1px dashed var(--line); border-radius: var(--radius); touch-action: none; cursor: crosshair; }
+.signature-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }

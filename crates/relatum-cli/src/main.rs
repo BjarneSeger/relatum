@@ -14,11 +14,11 @@ mod output;
 mod token;
 
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use relatum_client::{Client, ReviewDecisionDto};
+use relatum_client::{Client, ReviewDecisionDto, SignatureFormatDto};
 
 use crate::output::OutputFormat;
 
@@ -67,6 +67,9 @@ enum Command {
     /// Create, inspect and move reports through their workflow.
     #[command(subcommand)]
     Reports(ReportsCommand),
+    /// Register or view your signature (required before you can submit or sign).
+    #[command(subcommand)]
+    Signature(SignatureCommand),
     /// User administration (instructor-only).
     #[command(subcommand)]
     Users(UsersCommand),
@@ -120,6 +123,18 @@ enum ReviewDecision {
         #[arg(long)]
         reason: String,
     },
+}
+
+#[derive(Subcommand)]
+enum SignatureCommand {
+    /// Set or replace your signature from a PNG file (or `-` for stdin).
+    Set {
+        /// Path to a PNG image, or `-` to read PNG bytes from stdin.
+        #[arg(long)]
+        file: PathBuf,
+    },
+    /// Show your signature's format and when it was last set.
+    Show,
 }
 
 #[derive(Subcommand)]
@@ -194,6 +209,7 @@ async fn run(cli: Cli) -> Result<()> {
             output::emit(fmt, &info, || output::sso_text(&info))?;
         }
         Command::Reports(cmd) => run_reports(&client, fmt, cmd).await?,
+        Command::Signature(cmd) => run_signature(&client, fmt, cmd).await?,
         Command::Users(cmd) => run_users(&client, fmt, cmd).await?,
         Command::Meta(cmd) => run_meta(&client, fmt, cmd).await?,
     }
@@ -236,6 +252,24 @@ async fn run_reports(client: &Client, fmt: OutputFormat, cmd: ReportsCommand) ->
             client.review_report(&id, dto).await?;
             output::ack(fmt, "reviewed");
         }
+    }
+    Ok(())
+}
+
+async fn run_signature(client: &Client, fmt: OutputFormat, cmd: SignatureCommand) -> Result<()> {
+    match cmd {
+        SignatureCommand::Set { file } => {
+            let bytes = read_bytes(&file)?;
+            // PNG is the only supported format; the server re-validates the magic bytes.
+            client
+                .set_signature(SignatureFormatDto::Png, &bytes)
+                .await?;
+            output::ack(fmt, "signature set");
+        }
+        SignatureCommand::Show => match client.get_signature().await? {
+            Some(sig) => output::emit(fmt, &sig, || output::signature_text(&sig))?,
+            None => output::ack(fmt, "no signature on file"),
+        },
     }
     Ok(())
 }
@@ -293,5 +327,19 @@ fn read_content(content: Option<String>, file: Option<PathBuf>) -> Result<String
         (None, Some(path)) => std::fs::read_to_string(&path)
             .with_context(|| format!("reading content from {}", path.display())),
         (None, None) => bail!("provide --content <text> or --file <path> (use - for stdin)"),
+    }
+}
+
+/// Read raw bytes from `path`, or from stdin when `path` is `-`. The binary sibling of
+/// [`read_content`], used to load a signature image.
+fn read_bytes(path: &Path) -> Result<Vec<u8>> {
+    if path.as_os_str() == "-" {
+        let mut buf = Vec::new();
+        std::io::stdin()
+            .read_to_end(&mut buf)
+            .context("reading signature from stdin")?;
+        Ok(buf)
+    } else {
+        std::fs::read(path).with_context(|| format!("reading signature from {}", path.display()))
     }
 }

@@ -34,6 +34,12 @@ pub enum DomainError {
     #[error("conflict: {0}")]
     Conflict(String),
 
+    /// The action is permitted but a required precondition is unmet — e.g. a
+    /// trainee must register a signature before they can submit a report. The API
+    /// layer maps this to a status the caller can act on (prompt to satisfy it).
+    #[error("precondition required: {0}")]
+    Precondition(String),
+
     /// A downstream dependency (storage, the user directory, the session store, …) failed.
     #[error("backend error: {0}")]
     Backend(String),

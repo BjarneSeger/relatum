@@ -10,4 +10,5 @@ pub mod admin;
 pub mod auth;
 pub mod meta;
 pub mod report;
+pub mod signature;
 pub mod sync;

@@ -25,17 +25,9 @@ serde = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
-# A random nonce binds an SSO login attempt to its callback (login-flow CSRF).
 uuid = { workspace = true }
-# The create form offers a native date picker (supported everywhere, unlike
-# `<input type=week>` in Firefox); jiff maps the chosen day to its ISO week so the
-# API still receives the canonical `YYYY-Www`.
 jiff = { workspace = true }
-# Report bodies are markdown authored by one user and shown to others, so they are
-# rendered to HTML (`pulldown-cmark`) and then sanitized (`ammonia`) before a
-# template ever marks them safe.
 pulldown-cmark = { workspace = true }
 ammonia = { workspace = true }
-# `time::Duration` sets the Max-Age on the persistent theme cookie (axum-extra's
-# cookie API takes the `time` crate's `Duration`, which it does not itself re-export).
 time = { workspace = true }
+base64 = { workspace = true }

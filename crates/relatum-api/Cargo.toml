@@ -17,9 +17,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 axum = { workspace = true }
 utoipa-axum = { workspace = true }
-# Per-request span (method+path, status+latency) and structured logging at the
-# transport boundary: the error `IntoResponse`, the auth/report/admin audit events,
-# and the request `TraceLayer`. The domain stays logging-free; observability lives here.
+base64 = { workspace = true }
+jiff = { workspace = true }
 tracing = { workspace = true }
 tower-http = { workspace = true }
 

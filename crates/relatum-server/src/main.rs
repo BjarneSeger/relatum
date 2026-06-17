@@ -30,6 +30,7 @@ use relatum_domain::ports::ephemeral::EphemeralStore;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::status::StatusBackend;
 use relatum_domain::ports::userstorage::UserStorage;
@@ -37,6 +38,7 @@ use relatum_domain::services::admin::UserAdmin;
 use relatum_domain::services::auth::Authenticator;
 use relatum_domain::services::meta::MetaService;
 use relatum_domain::services::report::ReportService;
+use relatum_domain::services::signature::SignatureService;
 use relatum_domain::services::sync::DirectorySync;
 use relatum_infra::db;
 use relatum_infra::directory::{LdapConfig, LdapDirectory};
@@ -44,6 +46,7 @@ use relatum_infra::ids::UuidIdGenerator;
 use relatum_infra::repositories::ephemeral::{InMemoryTtlEphemeralStore, ValkeyEphemeralStore};
 use relatum_infra::repositories::report::{InMemoryReports, PostgresReportStore};
 use relatum_infra::repositories::session::{InMemoryTtlSessionStore, ValkeySessionStore};
+use relatum_infra::repositories::signature::{InMemorySignatures, PostgresSignatureStore};
 use relatum_infra::repositories::user::{InMemoryUsers, PostgresUserStore};
 use relatum_infra::sso::{DisabledSso, OidcFlow, OidcSso};
 use tracing_subscriber::EnvFilter;
@@ -130,6 +133,7 @@ async fn main() -> anyhow::Result<()> {
             let pool = db::connect_pg(&url).await?;
             db::run_migrations(&pool).await?;
             let users = PostgresUserStore::new(pool.clone());
+            let signatures = PostgresSignatureStore::new(pool.clone());
             let reports = PostgresReportStore::new(pool);
             spawn_directory_sync(directory, users.clone()).await;
             serve_with_sessions(
@@ -139,6 +143,7 @@ async fn main() -> anyhow::Result<()> {
                 departments,
                 users,
                 reports,
+                signatures,
                 ids,
             )
             .await
@@ -146,6 +151,7 @@ async fn main() -> anyhow::Result<()> {
         DataStore::Memory => {
             let users = InMemoryUsers::new();
             let reports = InMemoryReports::new();
+            let signatures = InMemorySignatures::new();
             spawn_directory_sync(directory, users.clone()).await;
             serve_with_sessions(
                 config.listen,
@@ -154,6 +160,7 @@ async fn main() -> anyhow::Result<()> {
                 departments,
                 users,
                 reports,
+                signatures,
                 ids,
             )
             .await
@@ -234,18 +241,23 @@ where
 
 /// Second axis: pick the session store, then defer the SSO choice. Generic over
 /// the data-store types resolved by the caller.
-async fn serve_with_sessions<U, R>(
+// Flat wiring dispatch: the stores and config join as separate args rather than a
+// bundling struct, which would only obscure the per-backend monomorphization.
+#[allow(clippy::too_many_arguments)]
+async fn serve_with_sessions<U, R, G>(
     listen: SocketAddr,
     sessions: SessionStore,
     sso: SsoStore,
     departments: DepartmentRegistry,
     users: U,
     reports: R,
+    signatures: G,
     ids: UuidIdGenerator,
 ) -> anyhow::Result<()>
 where
     U: UserStorage + StatusBackend + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
     let ttl = sessions.ttl();
     match sessions {
@@ -263,6 +275,7 @@ where
                 sso,
                 departments,
                 reports,
+                signatures,
             )
             .await
         }
@@ -284,6 +297,7 @@ where
                 sso,
                 departments,
                 reports,
+                signatures,
             )
             .await
         }
@@ -296,7 +310,7 @@ where
 // One wiring arg past clippy's threshold: the ephemeral store joins the other ports
 // that the SSO arm monomorphizes over. Bundling them would obscure the flat dispatch.
 #[allow(clippy::too_many_arguments)]
-async fn serve_with_sso<U, S, E, R>(
+async fn serve_with_sso<U, S, E, R, G>(
     listen: SocketAddr,
     users: U,
     sessions: S,
@@ -305,12 +319,14 @@ async fn serve_with_sso<U, S, E, R>(
     sso: SsoStore,
     departments: DepartmentRegistry,
     reports: R,
+    signatures: G,
 ) -> anyhow::Result<()>
 where
     U: UserStorage + StatusBackend + Clone + 'static,
     S: SessionRepository + StatusBackend + Clone + 'static,
     E: EphemeralStore + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
     match sso {
         SsoStore::Disabled => {
@@ -322,6 +338,7 @@ where
                 DisabledSso,
                 departments,
                 reports,
+                signatures,
             )
             .await
         }
@@ -360,7 +377,17 @@ where
                 },
                 ephemeral,
             )?;
-            serve(listen, users, sessions, ids, provider, departments, reports).await
+            serve(
+                listen,
+                users,
+                sessions,
+                ids,
+                provider,
+                departments,
+                reports,
+                signatures,
+            )
+            .await
         }
         #[cfg(feature = "dev")]
         SsoStore::Mock => {
@@ -372,16 +399,29 @@ where
                 let token = dev_token(id.as_str());
                 provider.register(&token, SsoIdentity { id });
             }
-            serve(listen, users, sessions, ids, provider, departments, reports).await
+            serve(
+                listen,
+                users,
+                sessions,
+                ids,
+                provider,
+                departments,
+                reports,
+                signatures,
+            )
+            .await
         }
     }
 }
 
 /// Assemble the domain services into [`AppState`], build the router and serve it.
 ///
-/// Generic over all five ports; the caller's `match` arms monomorphize one instance
+/// Generic over all six ports; the caller's `match` arms monomorphize one instance
 /// per backend combination.
-async fn serve<U, S, I, P, R>(
+// Flat wiring dispatch: every port arrives as its own arg, mirroring the other
+// `serve_*` stages; bundling them would not make the composition root clearer.
+#[allow(clippy::too_many_arguments)]
+async fn serve<U, S, I, P, R, G>(
     listen: SocketAddr,
     users: U,
     sessions: S,
@@ -389,6 +429,7 @@ async fn serve<U, S, I, P, R>(
     sso: P,
     departments: DepartmentRegistry,
     reports: R,
+    signatures: G,
 ) -> anyhow::Result<()>
 where
     U: UserStorage + StatusBackend + Clone + 'static,
@@ -396,6 +437,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + StatusBackend + Clone + 'static,
+    G: SignatureStorage + StatusBackend + Clone + 'static,
 {
     // The periodic LDAP directory sync that provisions users is spawned by `main`
     // (see `spawn_directory_sync`) before this runs, against the same user store.
@@ -410,11 +452,13 @@ where
         reports.clone(),
     );
 
+    let signature_service = SignatureService::new(signatures.clone());
     let state = AppState::new(
         Authenticator::new(users.clone(), sessions, ids.clone(), sso),
         meta,
-        ReportService::new(reports, users.clone(), ids),
+        ReportService::new(reports, users.clone(), ids, signatures),
         UserAdmin::new(users, departments),
+        signature_service,
     );
 
     let app = relatum_api::router(state);

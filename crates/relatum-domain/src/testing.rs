@@ -21,15 +21,19 @@ use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
+use jiff::Timestamp;
+
 use crate::DomainError;
 use crate::models::auth::SessionToken;
 use crate::models::ids::{DepartmentId, ReportId, UserId};
 use crate::models::report::Report;
+use crate::models::signature::{Signature, SignatureFormat, StoredSignature};
 use crate::models::users::{DirectoryMarker, User};
 use crate::ports::directory::{DirectoryEntry, DirectorySource};
 use crate::ports::ids::IdGenerator;
 use crate::ports::reportstorage::ReportStorage;
 use crate::ports::session::SessionRepository;
+use crate::ports::signaturestorage::SignatureStorage;
 use crate::ports::sso_connector::{SSOProvider, SsoIdentity};
 use crate::ports::status::{PortStatus, StatusBackend};
 use crate::ports::userstorage::UserStorage;
@@ -69,6 +73,16 @@ pub fn dev_user_catalogue() -> Vec<(UserId, DirectoryMarker, Option<DepartmentId
 /// The SSO token the mock provider attests for the user with id `id`.
 pub fn dev_token(id: &str) -> String {
     format!("tok-{id}")
+}
+
+/// A minimal valid PNG signature for seeding tests: the PNG magic number plus a
+/// couple of bytes, which is all [`Signature::new`] checks.
+pub fn dev_signature() -> Signature {
+    Signature::new(
+        SignatureFormat::Png,
+        vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01],
+    )
+    .expect("dev signature is a valid PNG")
 }
 
 /// Deterministic id generator: monotonically numbered ids and tokens.
@@ -125,6 +139,40 @@ impl UserStorage for InMemoryUsers {
 }
 
 impl StatusBackend for InMemoryUsers {
+    async fn get_status(&self) -> PortStatus {
+        PortStatus::Healthy
+    }
+}
+
+/// In-memory [`SignatureStorage`], keyed by [`UserId`].
+#[derive(Clone, Default)]
+pub struct InMemorySignatures {
+    signatures: Arc<Mutex<HashMap<String, StoredSignature>>>,
+}
+
+impl SignatureStorage for InMemorySignatures {
+    async fn set(
+        &self,
+        user: &UserId,
+        signature: Signature,
+        at: Timestamp,
+    ) -> Result<(), DomainError> {
+        self.signatures.lock().unwrap().insert(
+            user.as_str().to_owned(),
+            StoredSignature {
+                signature,
+                updated_at: at,
+            },
+        );
+        Ok(())
+    }
+
+    async fn get(&self, user: &UserId) -> Result<Option<StoredSignature>, DomainError> {
+        Ok(self.signatures.lock().unwrap().get(user.as_str()).cloned())
+    }
+}
+
+impl StatusBackend for InMemorySignatures {
     async fn get_status(&self) -> PortStatus {
         PortStatus::Healthy
     }

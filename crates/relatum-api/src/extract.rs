@@ -14,6 +14,7 @@ use relatum_domain::models::users::User;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::userstorage::UserStorage;
 
@@ -37,19 +38,20 @@ impl<St: Send + Sync> FromRequestParts<St> for BearerToken {
 /// The authenticated user behind a request's bearer token.
 pub struct CurrentUser(pub User);
 
-impl<U, S, I, P, R> FromRequestParts<AppState<U, S, I, P, R>> for CurrentUser
+impl<U, S, I, P, R, G> FromRequestParts<AppState<U, S, I, P, R, G>> for CurrentUser
 where
     U: UserStorage + Clone + 'static,
     S: SessionRepository + Clone + 'static,
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     type Rejection = ApiError;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<U, S, I, P, R>,
+        state: &AppState<U, S, I, P, R, G>,
     ) -> Result<Self, Self::Rejection> {
         let token = bearer_token(parts)?.to_owned();
         let user = state.auth.authenticate(&token).await?;

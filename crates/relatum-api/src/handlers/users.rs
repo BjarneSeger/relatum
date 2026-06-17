@@ -15,6 +15,7 @@ use relatum_domain::models::users::{Role, User};
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::userstorage::UserStorage;
 
@@ -49,8 +50,8 @@ fn require_instructor(user: &User) -> Result<(), ApiError> {
         (status = 403, description = "Caller is not an instructor", body = ErrorResponse),
     ),
 )]
-pub async fn list<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn list<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(actor): CurrentUser,
 ) -> Result<Json<Vec<UserSummary>>, ApiError>
 where
@@ -59,6 +60,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     require_instructor(&actor)?;
     let users = state.admin.list_users().await?;
@@ -80,8 +82,8 @@ where
         (status = 404, description = "User not found", body = ErrorResponse),
     ),
 )]
-pub async fn assign_department<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn assign_department<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(actor): CurrentUser,
     Path(id): Path<String>,
     Json(req): Json<AssignDepartmentRequest>,
@@ -92,6 +94,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     require_instructor(&actor)?;
     let user_id = UserId::new(id);
@@ -123,8 +126,8 @@ where
         (status = 404, description = "User not found", body = ErrorResponse),
     ),
 )]
-pub async fn clear_department<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn clear_department<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(actor): CurrentUser,
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError>
@@ -134,6 +137,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     require_instructor(&actor)?;
     let user_id = UserId::new(id);

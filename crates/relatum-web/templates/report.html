@@ -2,6 +2,7 @@
 {% block title %}Report {{ week }} · relatum{% endblock %}
 {% block actions %}
   <a class="btn-ghost" href="/">Back</a>
+  <a class="btn-ghost" href="/settings/signature">Signature</a>
   <span class="who">{{ viewer_id }}</span>
   <form class="inline" method="post" action="/logout"><button class="btn-ghost" type="submit">Sign out</button></form>
 {% endblock %}
@@ -9,6 +10,12 @@
 <article class="report">
   <h1>Report — {{ week }}</h1>
   <p class="meta">by {{ author }} · {{ department }} · <span class="status status-{{ status_class }}">{{ status_label }}</span></p>
+
+  {% if needs_signature %}
+  <div class="card notice">
+    <p>You need a signature before you can {% if can_review %}sign{% else %}submit{% endif %} this report. <a href="/settings/signature">Register your signature →</a></p>
+  </div>
+  {% endif %}
 
   {% if can_review %}
   <div class="review card">

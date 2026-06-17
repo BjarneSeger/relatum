@@ -9,6 +9,7 @@ pub mod admin;
 pub mod auth;
 pub mod meta;
 pub mod reports;
+pub mod signature;
 pub mod theme;
 
 use axum::http::HeaderMap;

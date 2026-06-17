@@ -14,6 +14,7 @@ use relatum_domain::models::week::IsoWeek;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::userstorage::UserStorage;
 
@@ -39,8 +40,8 @@ use crate::state::AppState;
         (status = 409, description = "A report already exists for this week", body = ErrorResponse),
     ),
 )]
-pub async fn create<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn create<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
     Json(req): Json<CreateReportRequest>,
 ) -> Result<(StatusCode, Json<CreatedReport>), ApiError>
@@ -50,6 +51,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     // A malformed week is a domain `Invalid` -> 400 before we touch storage.
     let week: IsoWeek = req.week.parse()?;
@@ -76,8 +78,8 @@ where
         (status = 401, description = "Not authenticated", body = ErrorResponse),
     ),
 )]
-pub async fn list<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn list<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Json<Vec<ReportView>>, ApiError>
 where
@@ -86,6 +88,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let reports = state.reports.list_for(user.id()).await?;
     Ok(Json(reports.into_iter().map(ReportView::from).collect()))
@@ -104,8 +107,8 @@ where
         (status = 404, description = "Report not found", body = ErrorResponse),
     ),
 )]
-pub async fn get<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn get<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
     Path(id): Path<String>,
 ) -> Result<Json<ReportView>, ApiError>
@@ -115,6 +118,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let report = state.reports.get(user.id(), &ReportId::new(id)).await?;
     Ok(Json(report.into()))
@@ -134,8 +138,8 @@ where
         (status = 404, description = "Report not found", body = ErrorResponse),
     ),
 )]
-pub async fn revise<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn revise<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
     Path(id): Path<String>,
     Json(req): Json<ReviseReportRequest>,
@@ -146,6 +150,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let id = ReportId::new(id);
     state.reports.revise(user.id(), &id, req.content).await?;
@@ -165,10 +170,11 @@ where
         (status = 401, description = "Not authenticated", body = ErrorResponse),
         (status = 403, description = "Not the author", body = ErrorResponse),
         (status = 404, description = "Report not found", body = ErrorResponse),
+        (status = 428, description = "Author has no signature on file — register one first", body = ErrorResponse),
     ),
 )]
-pub async fn submit<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn submit<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError>
@@ -178,6 +184,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let id = ReportId::new(id);
     state.reports.submit(user.id(), &id).await?;
@@ -199,10 +206,11 @@ where
         (status = 401, description = "Not authenticated", body = ErrorResponse),
         (status = 403, description = "Not a signer in this report's department", body = ErrorResponse),
         (status = 404, description = "Report not found", body = ErrorResponse),
+        (status = 428, description = "Signer has no signature on file — register one first", body = ErrorResponse),
     ),
 )]
-pub async fn review<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn review<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
     Path(id): Path<String>,
     Json(req): Json<ReviewRequest>,
@@ -213,6 +221,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let id = ReportId::new(id);
     // Record which decision was applied, but never the free-form rejection `reason`.

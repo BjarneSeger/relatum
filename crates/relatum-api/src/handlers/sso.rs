@@ -25,6 +25,7 @@ use axum::response::Redirect;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::userstorage::UserStorage;
 use serde::Deserialize;
@@ -43,8 +44,8 @@ use crate::state::AppState;
         (status = 200, description = "SSO availability and start URL", body = SsoInfo),
     ),
 )]
-pub async fn info<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn info<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
 ) -> Result<Json<SsoInfo>, ApiError>
 where
     U: UserStorage + Clone + 'static,
@@ -52,6 +53,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     Ok(Json(state.auth.sso_metadata().into()))
 }
@@ -66,8 +68,8 @@ pub struct StartQuery {
 }
 
 /// `GET /api/v1/auth/sso/start` — redirect the browser on to the IdP login.
-pub async fn start<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn start<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     Query(query): Query<StartQuery>,
 ) -> Result<Redirect, ApiError>
 where
@@ -76,6 +78,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     // Carry the app's nonce on its loopback URL so it travels through the IdP leg and
     // comes back for the app to verify.
@@ -95,8 +98,8 @@ pub struct CallbackQuery {
 
 /// `GET /api/v1/auth/sso/callback` — complete the login and return to the app with a
 /// single-use handoff code (not the session token).
-pub async fn callback<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn callback<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     Query(query): Query<CallbackQuery>,
 ) -> Result<Redirect, ApiError>
 where
@@ -105,6 +108,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let (handoff, app_redirect) = state.auth.sso_complete(&query.code, &query.state).await?;
     // `app_redirect` already carries `?state=<nonce>`; append the single-use handoff
@@ -126,8 +130,8 @@ where
         (status = 401, description = "Unknown, used, or expired handoff code", body = ErrorResponse),
     ),
 )]
-pub async fn exchange<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn exchange<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     Json(req): Json<SsoExchangeRequest>,
 ) -> Result<Json<AuthSuccess>, ApiError>
 where
@@ -136,6 +140,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let token = state.auth.sso_exchange(&req.code).await?;
     tracing::info!("sso handoff redeemed");

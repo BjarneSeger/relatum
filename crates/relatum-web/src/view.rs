@@ -84,37 +84,39 @@ pub struct Viewer {
     pub kind: Option<RoleKind>,
     pub label: String,
     pub department: Option<String>,
+    /// Whether the caller has a signature on file (from `/me`). A trainee or signer
+    /// needs one before they can submit or sign.
+    pub has_signature: bool,
 }
 
 impl Viewer {
     /// Classify the authenticated caller from their `/me` view.
     pub fn of(me: &MeView) -> Self {
         let id = me.id.clone();
-        match &me.role {
-            None => Viewer {
-                id,
-                kind: None,
-                label: "No department assigned".to_owned(),
-                department: None,
-            },
-            Some(RoleDto::Trainee(dept)) => Viewer {
-                id,
-                kind: Some(RoleKind::Trainee),
-                label: format!("Trainee · {dept}"),
-                department: Some(dept.clone()),
-            },
-            Some(RoleDto::Signer(dept)) => Viewer {
-                id,
-                kind: Some(RoleKind::Signer),
-                label: format!("Signer · {dept}"),
-                department: Some(dept.clone()),
-            },
-            Some(RoleDto::Instructor(dept)) => Viewer {
-                id,
-                kind: Some(RoleKind::Instructor),
-                label: format!("Instructor · {dept}"),
-                department: Some(dept.clone()),
-            },
+        let (kind, label, department) = match &me.role {
+            None => (None, "No department assigned".to_owned(), None),
+            Some(RoleDto::Trainee(dept)) => (
+                Some(RoleKind::Trainee),
+                format!("Trainee · {dept}"),
+                Some(dept.clone()),
+            ),
+            Some(RoleDto::Signer(dept)) => (
+                Some(RoleKind::Signer),
+                format!("Signer · {dept}"),
+                Some(dept.clone()),
+            ),
+            Some(RoleDto::Instructor(dept)) => (
+                Some(RoleKind::Instructor),
+                format!("Instructor · {dept}"),
+                Some(dept.clone()),
+            ),
+        };
+        Viewer {
+            id,
+            kind,
+            label,
+            department,
+            has_signature: me.has_signature,
         }
     }
 
@@ -124,6 +126,11 @@ impl Viewer {
 
     pub fn is_instructor(&self) -> bool {
         self.kind == Some(RoleKind::Instructor)
+    }
+
+    /// Whether the caller acts on reports (trainee or signer) and so needs a signature.
+    pub fn signs_reports(&self) -> bool {
+        matches!(self.kind, Some(RoleKind::Trainee) | Some(RoleKind::Signer))
     }
 }
 
@@ -227,6 +234,8 @@ pub struct Dashboard {
     pub inert: bool,
     pub can_create: bool,
     pub is_instructor: bool,
+    /// Caller acts on reports but has no signature yet → show a prompt to register one.
+    pub needs_signature: bool,
     pub heading: String,
     pub rows: Vec<String>,
 }
@@ -250,6 +259,22 @@ pub struct ReportPage {
     pub can_submit: bool,
     /// Signer in this department may sign or reject a submitted report.
     pub can_review: bool,
+    /// Caller could submit/review here but has no signature yet → prompt to register one.
+    pub needs_signature: bool,
+}
+
+#[derive(Template)]
+#[template(path = "signature.html")]
+pub struct SignaturePage {
+    pub theme: Theme,
+    pub viewer_id: String,
+    /// Only trainees and signers act on reports; others are told they need no signature.
+    pub can_register: bool,
+    /// Whether a signature is already on file.
+    pub has_signature: bool,
+    /// Pre-rendered "last set …" note (empty when no signature is on file), so the
+    /// template needs no `Option` handling.
+    pub updated_note: String,
 }
 
 #[derive(Template)]

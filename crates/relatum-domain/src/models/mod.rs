@@ -9,5 +9,6 @@ pub mod department;
 pub mod ids;
 pub mod meta;
 pub mod report;
+pub mod signature;
 pub mod users;
 pub mod week;

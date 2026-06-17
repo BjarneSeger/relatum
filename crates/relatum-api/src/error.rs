@@ -41,6 +41,11 @@ pub enum ApiError {
     #[error("conflict: {0}")]
     Conflict(String),
 
+    /// The action is permitted but a required precondition is unmet (e.g. the caller
+    /// must register a signature before submitting or signing a report). -> 428
+    #[error("precondition required: {0}")]
+    PreconditionRequired(String),
+
     /// A backend operation (storage, the user directory, the session store, …) failed. -> 502
     #[error("backend error: {0}")]
     Backend(String),
@@ -62,6 +67,7 @@ impl ApiError {
             ApiError::Unauthorized(_) => 401,
             ApiError::Forbidden(_) => 403,
             ApiError::Conflict(_) => 409,
+            ApiError::PreconditionRequired(_) => 428,
             ApiError::Backend(_) => 502,
             ApiError::Internal(_) => 500,
         }
@@ -75,6 +81,7 @@ impl ApiError {
             ApiError::Forbidden(_) => "forbidden".into(),
             ApiError::Internal(_) => "internal".into(),
             ApiError::NotFound(_) => "not_found".into(),
+            ApiError::PreconditionRequired(_) => "precondition_required".into(),
             ApiError::Unauthorized(_) => "unauthorized".into(),
         }
     }
@@ -91,6 +98,7 @@ impl From<DomainError> for ApiError {
             DomainError::Unauthorized(m) => ApiError::Unauthorized(m),
             DomainError::Forbidden(m) => ApiError::Forbidden(m),
             DomainError::Conflict(m) => ApiError::Conflict(m),
+            DomainError::Precondition(m) => ApiError::PreconditionRequired(m),
             DomainError::Backend(m) => ApiError::Backend(m),
             DomainError::Internal(m) => ApiError::Internal(m),
         }

@@ -15,13 +15,15 @@ pub mod generated {
     include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
 }
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use generated::types;
 
 /// Wire types callers (the CLI and web frontend) consume directly. These are the
 /// *generated* shapes, so they cannot drift from the server contract.
 pub use generated::types::{
-    ApiInfo, MarkerDto, MeView, ReportView, ReviewDecisionDto, ReviewStatusDto, RoleDto, SsoInfo,
-    UserSummary,
+    ApiInfo, MarkerDto, MeView, ReportView, ReviewDecisionDto, ReviewStatusDto, RoleDto,
+    SetSignatureRequest, SignatureFormatDto, SignatureView, SsoInfo, UserSummary,
 };
 
 /// Anything that can go wrong talking to the server.
@@ -266,6 +268,37 @@ impl Client {
         let req = types::ReviewRequest { decision };
         self.api()?.review(id, &req).await?;
         Ok(())
+    }
+
+    /// Set or replace the caller's own signature from raw image bytes.
+    ///
+    /// A trainee or signer must register one before they can submit or sign a report
+    /// (the server rejects instructors and inert users). The bytes are base64-encoded
+    /// here and sent as JSON, so callers pass the raw image.
+    pub async fn set_signature(
+        &self,
+        format: SignatureFormatDto,
+        image: &[u8],
+    ) -> Result<(), ClientError> {
+        let req = types::SetSignatureRequest {
+            format,
+            data_base64: BASE64.encode(image),
+        };
+        self.api()?.set_signature(&req).await?;
+        Ok(())
+    }
+
+    /// The caller's signature, or `None` if they have not registered one.
+    pub async fn get_signature(&self) -> Result<Option<SignatureView>, ClientError> {
+        match self.api()?.get_signature().await {
+            Ok(resp) => Ok(Some(resp.into_inner())),
+            // "No signature on file" is the documented 404 — a normal absence, not an
+            // error to surface to the caller.
+            Err(err) => match ClientError::from(err) {
+                ClientError::Api { status: 404, .. } => Ok(None),
+                other => Err(other),
+            },
+        }
     }
 
     /// Every user the instance knows about (instructor-only on the server).

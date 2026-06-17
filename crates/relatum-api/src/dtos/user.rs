@@ -27,13 +27,23 @@ pub struct MeView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
     pub role: Option<RoleDto>,
+    /// Whether the caller has a signature on file. A trainee or signer must register
+    /// one before they can submit or sign a report, so a UI can prompt for it up
+    /// front rather than waiting for a submit/sign to be rejected.
+    pub has_signature: bool,
 }
 
-impl From<&User> for MeView {
-    fn from(user: &User) -> Self {
+impl MeView {
+    /// Build from the resolved user plus whether they have a signature on file.
+    ///
+    /// `has_signature` is threaded in separately because it is a per-user asset the
+    /// [`User`] aggregate does not carry (see
+    /// [`SignatureStorage`](relatum_domain::ports::signaturestorage::SignatureStorage)).
+    pub fn from_user(user: &User, has_signature: bool) -> Self {
         MeView {
             id: user.id().as_str().to_owned(),
             role: user.role().as_ref().map(RoleDto::from),
+            has_signature,
         }
     }
 }

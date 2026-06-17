@@ -10,6 +10,7 @@ pub mod ephemeral;
 pub mod ids;
 pub mod reportstorage;
 pub mod session;
+pub mod signaturestorage;
 pub mod sso_connector;
 pub mod status;
 pub mod userstorage;

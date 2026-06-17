@@ -9,4 +9,5 @@
 pub mod ephemeral;
 pub mod report;
 pub mod session;
+pub mod signature;
 pub mod user;

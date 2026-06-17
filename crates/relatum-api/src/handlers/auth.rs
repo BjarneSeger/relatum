@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use relatum_domain::ports::ids::IdGenerator;
 use relatum_domain::ports::reportstorage::ReportStorage;
 use relatum_domain::ports::session::SessionRepository;
+use relatum_domain::ports::signaturestorage::SignatureStorage;
 use relatum_domain::ports::sso_connector::SSOProvider;
 use relatum_domain::ports::userstorage::UserStorage;
 
@@ -29,8 +30,8 @@ use crate::state::AppState;
         (status = 401, description = "Invalid or unrecognised SSO token", body = ErrorResponse),
     ),
 )]
-pub async fn login<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn login<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<AuthSuccess>, ApiError>
 where
@@ -39,6 +40,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let token = state.auth.login(req.into()).await?;
     tracing::info!("login succeeded");
@@ -55,8 +57,8 @@ where
         (status = 401, description = "Missing or malformed bearer token", body = ErrorResponse),
     ),
 )]
-pub async fn logout<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn logout<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     BearerToken(token): BearerToken,
 ) -> Result<StatusCode, ApiError>
 where
@@ -65,6 +67,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     state.auth.logout(&token).await?;
     tracing::info!("logout");
@@ -81,8 +84,8 @@ where
         (status = 401, description = "Unknown or expired session", body = ErrorResponse),
     ),
 )]
-pub async fn refresh<U, S, I, P, R>(
-    State(state): State<AppState<U, S, I, P, R>>,
+pub async fn refresh<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     BearerToken(token): BearerToken,
 ) -> Result<Json<AuthSuccess>, ApiError>
 where
@@ -91,6 +94,7 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
     let token = state.auth.refresh(&token).await?;
     tracing::info!("token refreshed");
@@ -107,8 +111,8 @@ where
         (status = 401, description = "Missing or invalid bearer token", body = ErrorResponse),
     ),
 )]
-pub async fn me<U, S, I, P, R>(
-    State(_state): State<AppState<U, S, I, P, R>>,
+pub async fn me<U, S, I, P, R, G>(
+    State(state): State<AppState<U, S, I, P, R, G>>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Json<MeView>, ApiError>
 where
@@ -117,6 +121,10 @@ where
     I: IdGenerator + Clone + 'static,
     P: SSOProvider + Clone + 'static,
     R: ReportStorage + Clone + 'static,
+    G: SignatureStorage + Clone + 'static,
 {
-    Ok(Json(MeView::from(&user)))
+    // Surface whether the caller has a signature on file so a UI can prompt for one
+    // up front rather than waiting for a submit/sign to be rejected with 428.
+    let has_signature = state.signatures.get(user.id()).await?.is_some();
+    Ok(Json(MeView::from_user(&user, has_signature)))
 }
