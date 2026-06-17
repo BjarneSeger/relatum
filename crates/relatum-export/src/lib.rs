@@ -579,7 +579,10 @@ mod tests {
                 .and_then(Object::as_reference)
                 .and_then(|id| doc.get_object(id))
                 .and_then(Object::as_stream)
-                .map(|s| s.decompressed_content().unwrap_or_else(|_| s.content.clone()))
+                .map(|s| {
+                    s.decompressed_content()
+                        .unwrap_or_else(|_| s.content.clone())
+                })
                 .map(|data| parse_bfchar(&data))
                 .unwrap_or_default();
             cmaps.insert(name, cmap);
@@ -592,7 +595,13 @@ mod tests {
         let mut cur: Option<Vec<u8>> = None;
         for op in content.operations {
             match op.operator.as_str() {
-                "Tf" => cur = op.operands.first().and_then(|o| o.as_name().ok()).map(<[u8]>::to_vec),
+                "Tf" => {
+                    cur = op
+                        .operands
+                        .first()
+                        .and_then(|o| o.as_name().ok())
+                        .map(<[u8]>::to_vec)
+                }
                 "Tj" => {
                     if let Some(map) = cur.as_ref().and_then(|n| cmaps.get(n))
                         && let Some(s) = op.operands.first().and_then(|o| o.as_str().ok())
@@ -677,7 +686,10 @@ mod tests {
         // Four form boxes (activities, header, two signature boxes) plus the two signature
         // rules all stroke, so at least four stroke ops must reach the page.
         let strokes = ops.iter().filter(|o| *o == "S").count();
-        assert!(strokes >= 4, "expected the boxes to be stroked, got {strokes} S ops");
+        assert!(
+            strokes >= 4,
+            "expected the boxes to be stroked, got {strokes} S ops"
+        );
     }
 
     #[test]
@@ -696,8 +708,14 @@ mod tests {
         let bytes = render_inner(&doc("hello", None), false);
         assert!(count(&bytes, b"/Type0") >= 1, "not a Type0 font");
         assert!(count(&bytes, b"/Identity-H") >= 1, "not Identity-H encoded");
-        assert!(count(&bytes, b"/FontFile2") >= 1, "no embedded font program");
-        assert!(count(&bytes, b"DejaVuSans") >= 1, "DejaVu face not embedded");
+        assert!(
+            count(&bytes, b"/FontFile2") >= 1,
+            "no embedded font program"
+        );
+        assert!(
+            count(&bytes, b"DejaVuSans") >= 1,
+            "DejaVu face not embedded"
+        );
         assert_eq!(
             count(&bytes, b"/Helvetica"),
             0,
